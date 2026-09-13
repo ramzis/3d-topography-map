@@ -73,19 +73,73 @@ class Chunk {
     return [(wx - this.minX) / CHUNK_WORLD_SIZE, (wz - this.minZ) / CHUNK_WORLD_SIZE];
   }
 
-  /** Build the mesh from the elevation grid. */
+  /** Build the mesh from the elevation grid (with a skirt — a short wall
+   *  dropped below the chunk border that hides the hairline cracks between
+   *  neighbouring tiles, whose edge elevations never match exactly). */
   buildMesh(defaultColor) {
-    const geo = new THREE.PlaneGeometry(CHUNK_WORLD_SIZE, CHUNK_WORLD_SIZE, CHUNK_SEGS, CHUNK_SEGS);
-    geo.rotateX(-Math.PI / 2);
+    const S = CHUNK_WORLD_SIZE;
+    const segs = CHUNK_SEGS;
+    const n = segs + 1;
 
-    // vertex (row r, col c): plane row 0 = local -z = north = tile row 0
-    const n = CHUNK_SEGS + 1;
     this.vertexElevs = new Float32Array(n * n);
     for (let r = 0; r < n; r++) {
       for (let c = 0; c < n; c++) {
-        this.vertexElevs[r * n + c] = this.sampleElev(c / CHUNK_SEGS, r / CHUNK_SEGS);
+        this.vertexElevs[r * n + c] = this.sampleElev(c / segs, r / segs);
       }
     }
+
+    // border ring (grid indices), clockwise seen from above: north L→R,
+    // east N→S, south R→L, west S→N — gives outward-facing skirt triangles
+    const ring = [];
+    for (let c = 0; c < n; c++) ring.push(c);
+    for (let r = 1; r < n; r++) ring.push(r * n + n - 1);
+    for (let c = n - 2; c >= 0; c--) ring.push((n - 1) * n + c);
+    for (let r = n - 2; r >= 1; r--) ring.push(r * n);
+    this.skirtRing = ring;
+    this.gridN = n;
+
+    const vertCount = n * n + ring.length;
+    const positions = new Float32Array(vertCount * 3);
+    const uvs = new Float32Array(vertCount * 2);
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        const i = r * n + c;
+        positions[i * 3] = -S / 2 + (c / segs) * S;
+        positions[i * 3 + 1] = 0; // heights applied by setHeights()
+        positions[i * 3 + 2] = -S / 2 + (r / segs) * S;
+        uvs[i * 2] = c / segs;
+        uvs[i * 2 + 1] = 1 - r / segs; // v=1 at north — matches PlaneGeometry+rotateX(-π/2) parity
+      }
+    }
+    for (let k = 0; k < ring.length; k++) {
+      const g = ring[k];
+      positions[(n * n + k) * 3] = positions[g * 3];
+      positions[(n * n + k) * 3 + 1] = 0;
+      positions[(n * n + k) * 3 + 2] = positions[g * 3 + 2];
+      uvs[(n * n + k) * 2] = uvs[g * 2];
+      uvs[(n * n + k) * 2 + 1] = uvs[g * 2 + 1];
+    }
+
+    const indices = [];
+    for (let r = 0; r < segs; r++) {
+      for (let c = 0; c < segs; c++) {
+        const i0 = r * n + c, i1 = i0 + 1, i2 = i0 + n, i3 = i2 + 1;
+        indices.push(i0, i2, i1, i1, i2, i3); // upward-facing
+      }
+    }
+    const rl = ring.length;
+    for (let k = 0; k < rl; k++) {
+      const k2 = (k + 1) % rl;
+      const a = ring[k], b = ring[k2];
+      const a2 = n * n + k, b2 = n * n + k2;
+      indices.push(a, b, b2, a, b2, a2); // outward-facing skirt wall
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
 
     this.material = new THREE.MeshStandardMaterial({
       color: defaultColor,
@@ -94,49 +148,17 @@ class Chunk {
       metalness: 0,
     });
     this.terrain = new THREE.Mesh(geo, this.material);
+    this.terrain.frustumCulled = false; // skirt hangs below the surface bbox
     this.group.add(this.terrain);
-
-    // chunk-border grid lines (the global 5.65 km grid), draped on the surface
-    const positions = [];
-    this.borderPairs = []; // [vertexIndex, elev]
-    const edge = (u0, v0, u1, v1) => {
-      for (let i = 0; i <= CHUNK_SEGS; i += 4) {
-        const t0 = i / CHUNK_SEGS;
-        const t1 = Math.min(1, (i + 4) / CHUNK_SEGS);
-        for (const t of [t0, t1]) {
-          const u = u0 + (u1 - u0) * t;
-          const v = v0 + (v1 - v0) * t;
-          positions.push(
-            -CHUNK_WORLD_SIZE / 2 + u * CHUNK_WORLD_SIZE,
-            0,
-            -CHUNK_WORLD_SIZE / 2 + v * CHUNK_WORLD_SIZE
-          );
-          this.borderPairs.push([positions.length / 3 - 1, this.sampleElev(u, v)]);
-        }
-      }
-    };
-    edge(0, 0, 1, 0); // north
-    edge(0, 1, 1, 1); // south
-    edge(0, 0, 0, 1); // west
-    edge(1, 0, 1, 1); // east
-
-    const lgeo = new THREE.BufferGeometry();
-    lgeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    this.borderLines = new THREE.LineSegments(lgeo, sharedMats.grid.clone());
-    this.borderLines.frustumCulled = false;
-    this.group.add(this.borderLines);
 
     this.scene.add(this.group);
   }
 
-  /** Attach ward-line overlay built by wards.js (chunk-local positions + base elevations). */
+  /** Attach ward-line overlay built by wards.js (chunk-local positions + base elevations).
+   *  Line rendering disabled ("remove the grid lines") — only the ward label sprites remain. */
   setWardLines(geometry, pairs) {
-    this.wardLines = new THREE.LineSegments(geometry, sharedMats.wards);
-    this.wardLines.frustumCulled = false;
-    this.group.add(this.wardLines);
-    this.wardPairs = pairs;
-    // lines arrive after the mesh was heighted — bring them to the surface now
-    if (this.exaggeration !== undefined) this.setHeights(this.exaggeration);
+    geometry.dispose();
+    this.wardPairs = [];
   }
 
   applyImagery(canvas, zoom = 13) {
@@ -207,6 +229,13 @@ class Chunk {
     for (let i = 0; i < this.vertexElevs.length; i++) {
       pos.setY(i, this.vertexElevs[i] * V * exaggeration);
     }
+    // skirt ring follows the border heights, dropped below the surface
+    if (this.skirtRing) {
+      const base = this.gridN * this.gridN;
+      for (let k = 0; k < this.skirtRing.length; k++) {
+        pos.setY(base + k, this.vertexElevs[this.skirtRing[k]] * V * exaggeration - SKIRT_DEPTH);
+      }
+    }
     pos.needsUpdate = true;
     this.terrain.geometry.computeVertexNormals();
 
@@ -236,12 +265,14 @@ class Chunk {
 }
 
 const sharedMats = {
-  grid: new THREE.LineBasicMaterial({ color: 0x7ec8e3, transparent: true, opacity: 0.45 }),
+  grid: new THREE.LineBasicMaterial({ color: 0xe8eaed, transparent: true, opacity: 0.45 }),
   wards: new THREE.LineBasicMaterial({ color: 0xff5964 }),
   terrainColor: new THREE.Color(0xb8a47e),
 };
 
-const MAX_CHUNKS = 60; // hard cap so a zoom-out cannot queue thousands of tiles
+const MAX_CHUNKS = 120; // hard cap so a zoom-out cannot queue thousands of tiles
+const SKIRT_DEPTH = 1.5; // scene units (1 unit = 100 m) — covers inter-chunk height mismatch
+const DISPATCH_LIMIT = 10; // loads in flight; the rest wait and re-sort as you look around
 
 /**
  * Loads chunks around the camera target (viewport-driven), disposes far ones.
@@ -251,6 +282,7 @@ export class ChunkManager {
     this.scene = scene;
     this.chunks = new Map();
     this.pending = new Set();
+    this.queue = []; // wanted-but-not-yet-dispatched chunk keys, view-priority sorted
     this.satelliteOn = true; // streaming build: imagery is the default mode
     this.onChunkReady = []; // callbacks(chunk)
     this.onStatus = []; // callbacks({loaded, loading})
@@ -290,6 +322,17 @@ export class ChunkManager {
         minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z);
       }
     }
+    // look-ahead: extend the loaded ground to ~2x what is visible ahead of the
+    // camera (scaled by the horizontal forward components, so diagonal looks
+    // extend diagonally; looking straight down adds nothing)
+    const fwd = new THREE.Vector3();
+    camera.getWorldDirection(fwd);
+    const gx = camera.position.x, gz = camera.position.z;
+    if (fwd.x > 0) maxX += Math.max(0, maxX - gx) * 2 * fwd.x;
+    else if (fwd.x < 0) minX -= Math.max(0, gx - minX) * -2 * fwd.x;
+    if (fwd.z > 0) maxZ += Math.max(0, maxZ - gz) * 2 * fwd.z;
+    else if (fwd.z < 0) minZ -= Math.max(0, gz - minZ) * -2 * fwd.z;
+
     // include the orbit target and pad generously
     minX = Math.min(minX, target.x) - CHUNK_WORLD_SIZE;
     maxX = Math.max(maxX, target.x) + CHUNK_WORLD_SIZE;
@@ -303,17 +346,37 @@ export class ChunkManager {
     const keys = [];
     for (let ty = cy0; ty <= cy1; ty++)
       for (let tx = cx0; tx <= cx1; tx++) keys.push(`${tx},${ty}`);
-    // keep the chunks closest to the orbit target when capping
+    // when capping, keep what's ahead of the camera first, then near
     if (keys.length > MAX_CHUNKS) {
-      const [ttx, tty] = worldToChunk(target.x, target.z);
-      const dist = (k) => {
-        const [x, y] = k.split(',').map(Number);
-        return Math.max(Math.abs(x - ttx), Math.abs(y - tty));
-      };
-      keys.sort((a, b) => dist(a) - dist(b));
+      keys.sort((a, b) => this._viewPriority(a, camera) - this._viewPriority(b, camera));
       keys.length = MAX_CHUNKS;
     }
     return keys;
+  }
+
+  /** Chunk-center world position for a tile coordinate. */
+  chunkCenterWorld(tx, ty) {
+    return mercToWorld(
+      (tx + 0.5) * chunkSpan - MERC_NORTH,
+      MERC_NORTH - (ty + 0.5) * chunkSpan
+    );
+  }
+
+  /**
+   * Loading priority: chunks in front of the camera load first.
+   * score = distance × (1.5 − alignment) — aligned (ahead) chunks get a
+   * discounted distance, chunks behind the viewer are penalized.
+   */
+  _viewPriority(key, camera) {
+    const [tx, ty] = key.split(',').map(Number);
+    const [cx, cz] = this.chunkCenterWorld(tx, ty);
+    const dx = cx - camera.position.x;
+    const dz = cz - camera.position.z;
+    const dist = Math.hypot(dx, dz) || 1;
+    const fwd = this._fwd || (this._fwd = new THREE.Vector3());
+    camera.getWorldDirection(fwd);
+    const alignment = (dx * fwd.x + dz * fwd.z) / dist; // 1 ahead … -1 behind
+    return dist * (1.5 - alignment);
   }
 
   update(camera, target) {
@@ -326,11 +389,23 @@ export class ChunkManager {
         this._emitStatus();
       }
     }
+
+    // maintain the waiting queue; it is re-sorted every update so turning
+    // to look elsewhere immediately re-prioritizes what loads next
+    this.queue = this.queue.filter((k) => wanted.has(k) && !this.chunks.has(k));
     for (const key of wanted) {
-      if (!this.chunks.has(key) && !this.pending.has(key)) {
-        const [tx, ty] = key.split(',').map(Number);
-        this._loadChunk(tx, ty);
+      if (!this.chunks.has(key) && !this.pending.has(key) && !this.queue.includes(key)) {
+        this.queue.push(key);
       }
+    }
+    this.queue.sort((a, b) => this._viewPriority(a, camera) - this._viewPriority(b, camera));
+
+    // dispatch a limited number of loads; the rest wait (and re-sort as you look)
+    while (this.queue.length && this.pending.size < DISPATCH_LIMIT) {
+      const key = this.queue.shift();
+      if (this.chunks.has(key) || this.pending.has(key)) continue;
+      const [tx, ty] = key.split(',').map(Number);
+      this._loadChunk(tx, ty);
     }
     this._updateLod(camera);
   }
@@ -377,6 +452,33 @@ export class ChunkManager {
     }
   }
 
+  /** Glue chunk edges: where two loaded chunks meet, force their shared
+   *  border vertex elevations to the average of both tiles' samples, so the
+   *  meshes join exactly — no cracks, regardless of inter-tile sampling
+   *  differences (each tile's edge pixels sit ~78 m apart in the real world). */
+  _stitchChunk(chunk) {
+    const n = chunk.gridN;
+    if (!n) return;
+    const touched = new Set([chunk]);
+    const neighbor = (dx, dy) => this.chunks.get(`${chunk.tx + dx},${chunk.ty + dy}`);
+    const glueEdge = (other, mine, theirs) => {
+      // mine/theirs: (r) => vertex index on the shared edge
+      if (!other || !other.gridN) return;
+      for (let r = 0; r < n; r++) {
+        const i = mine(r), j = theirs(r);
+        const avg = (chunk.vertexElevs[i] + other.vertexElevs[j]) / 2;
+        chunk.vertexElevs[i] = avg;
+        other.vertexElevs[j] = avg;
+      }
+      touched.add(other);
+    };
+    glueEdge(neighbor(1, 0), (r) => r * n + (n - 1), (r) => r * n);             // east ↔ west
+    glueEdge(neighbor(-1, 0), (r) => r * n, (r) => r * n + (n - 1));             // west ↔ east
+    glueEdge(neighbor(0, -1), (r) => r, (r) => (n - 1) * n + r);                 // north ↔ south
+    glueEdge(neighbor(0, 1), (r) => (n - 1) * n + r, (r) => r);                  // south ↔ north
+    for (const c of touched) c.setHeights(this.effectiveExaggeration);
+  }
+
   async _loadChunk(tx, ty) {
     const key = `${tx},${ty}`;
     this.pending.add(key);
@@ -388,6 +490,7 @@ export class ChunkManager {
       chunk.grid = grid;
       chunk.buildMesh(sharedMats.terrainColor);
       chunk.setHeights(this.effectiveExaggeration);
+      this._stitchChunk(chunk);
       chunk.setSatellite(this.satelliteOn);
       chunk.setWireframe(this.wireframe ?? false);
       chunk.setFlatShading(this.flatShading ?? true);

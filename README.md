@@ -65,10 +65,9 @@ in the repo root keeps GitHub's Jekyll processing off.
   pure-JS PNG decoder (`js/png-decoder.js`) rather than the browser's
   ImageBitmap/canvas path, because color-managed image decoding on
   wide-gamut displays perturbs elevation-encoded RGB values.
-- **Overlays** — the 21 Vilniaus seniūnija boundaries are fetched once and
-  draped per-chunk; a name label sits at each ward centroid. Additional
-  place names (cities, towns, villages) stream from OpenStreetMap via the
-  Overpass API as you fly. Labels fade out below readable size.
+- **Overlays** — a name label sits at each Vilnius seniūnija centroid;
+  additional place names (cities, towns, villages) stream from OpenStreetMap
+  via the Overpass API as you fly. Labels fade out below readable size.
 - **Coordinate system** — local mercator meters around the Vilnius center,
   scaled by cos(lat): 1 scene unit ≈ 100 m horizontally and vertically.
 

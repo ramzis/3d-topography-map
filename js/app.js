@@ -6,7 +6,13 @@ import { FlyRig } from './fly.js';
 import { PlacesLayer } from './places.js';
 import { initAnalytics } from './analytics.js';
 import { mountSearch } from './search.js';
+import { mountLocationStatus } from './location.js';
 import { teleportTo } from './teleport.js';
+import { DayNightSky } from './sky.js';
+import { rollRandomLandPlace } from './dice.js';
+import {
+  stateFromUrl, stateFromStorage, applyState, createStateSaver, encodeState, writeUrl,
+} from './state.js';
 
 const DEFAULT_EXAGGERATION = 6;
 
@@ -21,7 +27,9 @@ scene.background = new THREE.Color(0x10141a);
 scene.fog = new THREE.Fog(0x10141a, 900, 2600);
 
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 6000);
-camera.position.set(170, 150, 210);
+// start low over Vilnius city center, looking across the city
+camera.position.set(0, 40, 30);
+camera.lookAt(0, 18, -60);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 12, 0);
@@ -31,16 +39,40 @@ controls.maxPolarAngle = Math.PI / 2 - 0.02;
 controls.minDistance = 10;
 controls.maxDistance = 1500;
 
-scene.add(new THREE.HemisphereLight(0xdfe8f5, 0x30281e, 1.0));
-const sun = new THREE.DirectionalLight(0xffffff, 2.2);
-sun.position.set(150, 260, 110);
-scene.add(sun);
+// --- day/night sky (owns the terrain lights) ----------------------------------------
+const sky = new DayNightSky(scene);
+scene.fog.color = sky.fogColor;
 
 // --- streaming world ----------------------------------------------------------------
 const manager = new ChunkManager(scene);
 manager.setExaggeration(DEFAULT_EXAGGERATION);
 const wards = new WardOverlay(manager, scene);
 const places = new PlacesLayer(scene);
+
+// --- restore shared/saved view state (URL → localStorage → default) ----------------
+const savedState = stateFromUrl() || stateFromStorage();
+if (savedState) {
+  applyState(savedState, camera, controls, (f) => {
+    const slider = document.getElementById('exaggeration');
+    slider.value = f;
+    document.getElementById('exagVal').textContent = `${f}×`;
+    manager.setExaggeration(f);
+    wards.updateExaggeration(f);
+  });
+} else {
+  // default: low over Vilnius city center, looking across the city
+  applyState(
+    { lat: 54.6858, lon: 25.2848, alt: 40, yaw: 0, pitch: -0.25, exag: DEFAULT_EXAGGERATION },
+    camera,
+    controls,
+    null
+  );
+}
+const saveState = createStateSaver(camera, () =>
+  Number(document.getElementById('exaggeration').value)
+);
+const updateLocationStatus = mountLocationStatus(camera);
+
 manager.update(camera, controls.target);
 
 wards
@@ -65,26 +97,11 @@ $('exaggeration').addEventListener('input', (e) => {
   wards.updateExaggeration(f);
 });
 
-// --- settings panel + key help -------------------------------------------------------
+// --- settings panel --------------------------------------------------------------------
 const isTouch = matchMedia('(pointer: coarse)').matches;
 $('panelToggle').addEventListener('click', () =>
   document.body.classList.toggle('panel-open')
 );
-
-if (!isTouch) {
-  const help = $('keyHelp');
-  const openBtn = $('keyHelpOpen');
-  $('keyHelpClose').addEventListener('click', () => {
-    help.style.display = 'none';
-    openBtn.style.display = '';
-    localStorage.setItem('keyHelpHidden', '1');
-  });
-  openBtn.addEventListener('click', () => {
-    help.style.display = '';
-    openBtn.style.display = 'none';
-    localStorage.setItem('keyHelpHidden', '0');
-  });
-}
 // touch devices keep the OrbitControls gestures:
 // one finger — orbit, pinch — zoom, two fingers — pan
 
@@ -95,6 +112,13 @@ const fly = new FlyRig(camera, renderer.domElement, {
 fly.onSpeed = (s) => {
   $('flySpeed').textContent = `fly speed: ${s.toFixed(0)} · sprint ×4`;
 };
+
+// --- always-day toggle: pin the sun to local noon ------------------------------------
+$('sunBtn').addEventListener('click', () => {
+  const on = !sky.alwaysNoon;
+  sky.setAlwaysNoon(on);
+  $('sunBtn').classList.toggle('on', on);
+});
 
 if (!isTouch) {
   // desktop: spectator fly camera (click the view to capture the mouse)
@@ -149,6 +173,45 @@ mountSearch({
   onSelect: (place) => teleportTo(place, { camera, controls, fly, manager }),
 });
 
+// --- dice roll: teleport to a random land spot ----------------------------------
+$('diceBtn').addEventListener('click', async () => {
+  const btn = $('diceBtn');
+  if (btn.classList.contains('rolling')) return;
+  btn.classList.add('rolling');
+  try {
+    const place = await rollRandomLandPlace();
+    await teleportTo(place, { camera, controls, fly, manager });
+  } finally {
+    btn.classList.remove('rolling');
+  }
+});
+
+// --- share: copy a link that embeds the current view ------------------------------
+$('shareBtn').addEventListener('click', async () => {
+  writeUrl(encodeState(camera, Number($('exaggeration').value)));
+  const url = location.href;
+  const btn = $('shareBtn');
+  try {
+    await navigator.clipboard.writeText(url);
+    btn.textContent = '✓';
+    btn.title = 'Link copied!';
+  } catch {
+    // clipboard unavailable (e.g. non-secure context) — select the old way
+    const el = document.createElement('textarea');
+    el.value = url;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    el.remove();
+    btn.textContent = '✓';
+    btn.title = 'Link copied!';
+  }
+  setTimeout(() => {
+    btn.textContent = '🔗';
+    btn.title = 'Share this view';
+  }, 2000);
+});
+
 let lastChunkUpdate = 0;
 let lastFrameT = 0;
 renderer.setAnimationLoop((t) => {
@@ -174,6 +237,10 @@ renderer.setAnimationLoop((t) => {
     manager.update(camera, controls.target);
     places.update(camera, controls.target, t);
   }
+  sky.update(camera, controls.target);
+  scene.fog.color.copy(sky.fogColor);
+  saveState(t);
+  updateLocationStatus(t);
   places.updatePositions((wx, wz) => manager.groundWorldY(wx, wz));
   updateLabelFade();
   renderer.render(scene, camera);

@@ -1,7 +1,6 @@
 import * as THREE from 'three';
-import { mercToWorld, lonToMercX, latToMercY, V, worldToChunk } from './geo.js';
+import { mercToWorld, lonToMercX, latToMercY, V } from './geo.js';
 import { makeLabel, recolorLabel } from './labels.js';
-import { CHUNK_WORLD_SIZE } from './chunks.js';
 
 const WARDS_URL =
   'https://opencity.idvilnius.lt/gis/rest/services/Miesto_valdymas/Seniunijos_public/MapServer/1/query' +
@@ -86,33 +85,7 @@ export class WardOverlay {
     if (this.wards.length === 0 || chunk._wardDecorated) return;
     chunk._wardDecorated = true;
 
-    // precompute ring vertices in world units
-    const positions = [];
-    const pairs = [];
-    let vi = 0;
-    for (const ward of this.wards) {
-      const ring = ward.ringWorld ?? (ward.ringWorld = ward.ringMerc.map((m) => mercToWorld(m[0], m[1])));
-      for (let i = 0; i < ring.length - 1; i++) {
-        const [ax, az] = ring[i];
-        const [bx, bz] = ring[i + 1];
-        // midpoint-in-chunk rule: each segment belongs to exactly one chunk
-        const mxw = (ax + bx) / 2;
-        const mz = (az + bz) / 2;
-        if (mxw < chunk.minX || mxw >= chunk.maxX || mz < chunk.minZ || mz >= chunk.maxZ) continue;
-        for (const [wx, wz] of [[ax, az], [bx, bz]]) {
-          const [u, v] = chunk.worldToUV(wx, wz);
-          positions.push(wx - chunk.wx0, 0, wz - chunk.wz0);
-          pairs.push([vi, chunk.sampleElev(u, v)]);
-          vi++;
-        }
-      }
-    }
-
-    if (positions.length) {
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      chunk.setWardLines(geo, pairs);
-    }
+    // (ward boundary lines removed — only centroid labels remain)
 
     // spawn labels whose centroid lives in this chunk
     for (const ward of this.wards) {

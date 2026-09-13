@@ -1,10 +1,11 @@
 :root {
-  --panel-bg: rgba(20, 24, 30, 0.88);
-  --box-bg: rgba(20, 24, 30, 0.88);
-  --border: rgba(255, 255, 255, 0.12);
+  --panel-bg: rgba(16, 20, 26, 0.55);
+  --box-bg: rgba(16, 20, 26, 0.55);
+  --border: rgba(255, 255, 255, 0.18);
+  --glass-shadow: 0 8px 32px 0 rgba(13, 38, 38, 0.5);
   --text: #e8eaed;
   --muted: #9aa3ad;
-  --accent: #7ec8e3;
+  --accent: #e8eaed;
 }
 
 * { box-sizing: border-box; }
@@ -14,7 +15,7 @@ html, body {
   height: 100%;
   overflow: hidden;
   background: #10141a;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "Average Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--text);
 }
 
@@ -32,38 +33,101 @@ canvas { display: block; touch-action: none; }
   color: var(--text);
   background: var(--box-bg);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 14px;
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--glass-shadow);
+  transition: all 0.1s ease-in-out;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   z-index: 20;
 }
-.icon-box:hover { background: rgba(40, 48, 58, 0.92); }
+.icon-box:hover { background: rgba(255, 255, 255, 0.25); transform: translateY(-2px); }
+.icon-box:active { transform: scale(0.9); }
+.icon-box svg { width: 20px; height: 20px; display: block; }
+
+/* dice/share buttons: icon + small label underneath */
+.icon-box.labelled {
+  flex-direction: column;
+  gap: 1px;
+  width: 54px;
+  height: 42px;
+  font-size: 8px;
+  letter-spacing: 0.02em;
+}
+.icon-box.labelled svg { width: 15px; height: 15px; }
+.icon-box.on { color: #ffd166; } /* sun active: warm gold icon on the same glass */
+.btn-label { line-height: 1; }
 
 #panelToggle { top: 12px; left: 12px; }
+#sunBtn { top: 12px; left: 62px; }
 
-/* --- search bar (top center, always) ---------------------------------------- */
-#searchBar {
+/* --- nav bar: search + dice (top center, always) ----------------------------------- */
+#navBar {
   position: fixed;
   top: 12px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(60vw, 380px);
+  display: flex;
+  gap: 8px;
+  width: min(60vw, 420px);
   z-index: 20;
+}
+
+/* --- location status ("Vilnius, Lithuania") right of the settings button ------------ */
+#locationStatus {
+  position: fixed;
+  top: 12px;
+  left: 124px; /* settings 12px + 42px + sun button 54px + 8px gaps */
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 42px;
+  max-width: min(70vw, 340px);
+  padding: 0 14px;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+  background: var(--box-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--glass-shadow);
+  opacity: 0;
+  transition: opacity 0.4s;
+  pointer-events: none;
+  z-index: 19;
+}
+#locationStatus .loc-pin {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+#locationStatus.visible { opacity: 1; }
+
+#searchBar {
+  position: relative;
+  flex: 1;
 }
 
 #searchInput {
   width: 100%;
-  padding: 9px 14px;
+  padding: 9px 18px;
   font-size: 16px; /* >=16px prevents iOS focus zoom */
   color: var(--text);
   background: var(--box-bg);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 999px;
   outline: none;
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--glass-shadow);
 }
-#searchInput:focus { border-color: rgba(126, 200, 227, 0.6); }
+#searchInput:focus { border-color: rgba(255, 255, 255, 0.4); }
 #searchInput::placeholder { color: var(--muted); }
 
 #searchResults {
@@ -72,12 +136,13 @@ canvas { display: block; touch-action: none; }
   margin-top: -1px; /* tuck under the input's bottom border — one continuous box */
   left: 0;
   right: 0;
-  background: rgba(20, 24, 30, 0.97);
-  border: 1px solid var(--border);
-  border-top: none;
-  border-radius: 0 0 10px 10px;
+  background: var(--box-bg);
+  border: none;
+  border-radius: 0 0 20px 20px;
   overflow: hidden;
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--glass-shadow);
 }
 
 .search-result {
@@ -93,9 +158,19 @@ canvas { display: block; touch-action: none; }
   border: none;
   cursor: pointer;
 }
-.search-result:hover { background: rgba(255, 255, 255, 0.08); }
+.search-result:hover { background: rgba(255, 255, 255, 0.15); }
 .search-sub { font-size: 11px; color: var(--muted); }
 .search-status { padding: 8px 12px; font-size: 12px; color: var(--muted); }
+
+#diceBtn, #shareBtn { position: static; flex-shrink: 0; }
+#diceBtn.rolling {
+  animation: diceSpin 0.55s ease infinite;
+  pointer-events: none;
+}
+@keyframes diceSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
 
 /* --- settings panel (⚙) ------------------------------------------------------ */
 #panel {
@@ -106,8 +181,10 @@ canvas { display: block; touch-action: none; }
   padding: 14px 16px;
   background: var(--panel-bg);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 20px;
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--glass-shadow);
   z-index: 15;
 }
 body:not(.panel-open) #panel { display: none; }
@@ -135,8 +212,10 @@ body:not(.panel-open) #panel { display: none; }
   padding: 10px 16px;
   background: var(--box-bg);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 20px;
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--glass-shadow);
   z-index: 20;
 }
 #exagBar label {
@@ -165,12 +244,12 @@ body:not(.panel-open) #panel { display: none; }
   padding: 14px 16px;
   background: var(--box-bg);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 20px;
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--glass-shadow);
   z-index: 20;
 }
-
-#keyHelpClose { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; font-size: 12px; border-radius: 7px; }
 
 .key-groups {
   display: flex;
@@ -197,13 +276,13 @@ kbd {
   font-size: 11px;
   color: var(--text);
   text-align: center;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-bottom-width: 2px;
   border-radius: 6px;
 }
 
-#keyHelpOpen { top: 12px; right: 12px; display: none; }
+#keyHelpOpen { display: none; } /* legacy — button removed */
 
 /* --- attribution ---------------------------------------------------------------- */
 #attrib {
@@ -212,9 +291,13 @@ kbd {
   right: 12px;
   font-size: 10px;
   color: var(--muted);
-  background: rgba(16, 20, 26, 0.6);
-  padding: 4px 8px;
-  border-radius: 6px;
+  background: var(--box-bg);
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--glass-shadow);
   z-index: 10;
   max-width: 500px;
 }
@@ -226,8 +309,9 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(10, 13, 18, 0.55);
-  backdrop-filter: blur(3px);
+  background: rgba(10, 13, 18, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   z-index: 50;
   transition: opacity 0.45s;
 }
@@ -279,8 +363,10 @@ kbd {
   padding: 14px 18px;
   background: var(--panel-bg);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 20px;
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--glass-shadow);
   z-index: 40;
   font-size: 13px;
   line-height: 1.4;
@@ -305,17 +391,20 @@ kbd {
 .cookie-btn {
   padding: 8px 14px;
   font-size: 13px;
-  border-radius: 8px;
+  border-radius: 999px;
   cursor: pointer;
   color: var(--text);
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.25);
+  transition: all 0.1s ease-in-out;
 }
-.cookie-btn:hover { background: rgba(255, 255, 255, 0.07); }
+.cookie-btn:hover { background: rgba(255, 255, 255, 0.15); transform: translateY(-2px); }
+.cookie-btn:active { transform: scale(0.9); }
 
 /* --- medium widths: credits are a full-width strip at the very bottom,
      slider stacked above so they never overlap ---------------------------- */
 @media (min-width: 641px) and (max-width: 1100px) {
+  #navBar { width: min(70vw, 420px); }
   #exagBar { bottom: 54px; }
 
   #attrib {
@@ -335,9 +424,11 @@ kbd {
 
 /* --- mobile --------------------------------------------------------------------------- */
 @media (max-width: 640px) {
-  #searchBar { width: calc(100vw - 140px); }
+  #navBar { width: calc(100vw - 130px); }
 
-  /* settings lives top-right on mobile */
+  /* settings lives top-right on mobile; sun + location stack top-left */
+  #sunBtn { top: 12px; left: 12px; }
+  #locationStatus { left: 74px; max-width: calc(100vw - 210px); }
   #panelToggle { top: 12px; left: auto; right: 12px; }
 
   #panel {
