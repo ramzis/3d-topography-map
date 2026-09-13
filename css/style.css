@@ -1,7 +1,10 @@
 :root {
   --panel-bg: rgba(20, 24, 30, 0.88);
+  --box-bg: rgba(20, 24, 30, 0.88);
+  --border: rgba(255, 255, 255, 0.12);
   --text: #e8eaed;
   --muted: #9aa3ad;
+  --accent: #7ec8e3;
 }
 
 * { box-sizing: border-box; }
@@ -17,106 +20,64 @@ html, body {
 
 canvas { display: block; touch-action: none; }
 
-#panelToggle {
-  display: none;
+/* --- square icon boxes (⚙, ✕, ?) ------------------------------------------ */
+.icon-box {
   position: fixed;
-  top: 12px;
-  left: 12px;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: var(--panel-bg);
-  color: var(--text);
-  font-size: 20px;
-  backdrop-filter: blur(8px);
-  z-index: 20;
+  width: 42px;
+  height: 42px;
+  display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 19px;
+  color: var(--text);
+  background: var(--box-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  backdrop-filter: blur(8px);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  z-index: 20;
 }
-body.panel-collapsed #panel { display: none; }
+.icon-box:hover { background: rgba(40, 48, 58, 0.92); }
 
-#panel {
+#panelToggle { top: 12px; left: 12px; }
+
+/* --- search bar (top center, always) ---------------------------------------- */
+#searchBar {
   position: fixed;
-  top: 16px;
-  left: 16px;
-  width: 280px;
-  padding: 14px 16px;
-  background: var(--panel-bg);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  backdrop-filter: blur(8px);
-  z-index: 10;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(60vw, 380px);
+  z-index: 20;
 }
-
-#panel h1 {
-  margin: 0 0 6px;
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-#panel h1 span {
-  display: block;
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--muted);
-  margin-top: 2px;
-}
-
-#status {
-  margin: 0 0 10px;
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.control { margin: 10px 0; }
-.control label {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  color: var(--text);
-  margin-bottom: 4px;
-}
-.control output { color: var(--muted); }
-
-input[type="range"] {
-  width: 100%;
-  accent-color: #7ec8e3;
-}
-
-.hint {
-  margin: 10px 0 0;
-  font-size: 11px;
-  color: var(--muted);
-  line-height: 1.5;
-}
-
-#flySpeed { color: #7ec8e3; }
-
-/* --- search ---------------------------------------------------------------- */
-#searchWrap { margin: 0 0 12px; }
 
 #searchInput {
   width: 100%;
-  padding: 8px 12px;
-  font-size: 13px;
+  padding: 9px 14px;
+  font-size: 16px; /* >=16px prevents iOS focus zoom */
   color: var(--text);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
+  background: var(--box-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
   outline: none;
+  backdrop-filter: blur(8px);
 }
 #searchInput:focus { border-color: rgba(126, 200, 227, 0.6); }
+#searchInput::placeholder { color: var(--muted); }
 
 #searchResults {
-  margin-top: 4px;
-  background: rgba(20, 24, 30, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  position: absolute;
+  top: 100%;
+  margin-top: -1px; /* tuck under the input's bottom border — one continuous box */
+  left: 0;
+  right: 0;
+  background: rgba(20, 24, 30, 0.97);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
   overflow: hidden;
+  backdrop-filter: blur(8px);
 }
 
 .search-result {
@@ -124,21 +85,141 @@ input[type="range"] {
   flex-direction: column;
   gap: 1px;
   width: 100%;
-  padding: 7px 10px;
+  padding: 8px 12px;
   text-align: left;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--text);
   background: transparent;
   border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   cursor: pointer;
 }
-.search-result:last-child { border-bottom: none; }
 .search-result:hover { background: rgba(255, 255, 255, 0.08); }
 .search-sub { font-size: 11px; color: var(--muted); }
-.search-status { padding: 7px 10px; font-size: 12px; color: var(--muted); }
+.search-status { padding: 8px 12px; font-size: 12px; color: var(--muted); }
 
-/* --- teleport overlay ------------------------------------------------------- */
+/* --- settings panel (⚙) ------------------------------------------------------ */
+#panel {
+  position: fixed;
+  top: 64px;
+  left: 12px;
+  width: 270px;
+  padding: 14px 16px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  z-index: 15;
+}
+body:not(.panel-open) #panel { display: none; }
+
+#panel h1 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+#panel h1 span {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* --- exaggeration slider (bottom center, always) ------------------------------ */
+#exagBar {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(80vw, 340px);
+  padding: 10px 16px;
+  background: var(--box-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  z-index: 20;
+}
+#exagBar label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+#exagBar output { color: var(--muted); }
+#exagBar input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+
+.hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+#flySpeed { color: var(--accent); }
+
+/* --- keyboard help (desktop) --------------------------------------------------- */
+#keyHelp {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  padding: 14px 16px;
+  background: var(--box-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  z-index: 20;
+}
+
+#keyHelpClose { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; font-size: 12px; border-radius: 7px; }
+
+.key-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.key-group { display: flex; flex-direction: column; gap: 4px; }
+
+.key-desc {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.key-row { display: flex; gap: 5px; }
+
+kbd {
+  min-width: 26px;
+  padding: 4px 7px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text);
+  text-align: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+}
+
+#keyHelpOpen { top: 12px; right: 12px; display: none; }
+
+/* --- attribution ---------------------------------------------------------------- */
+#attrib {
+  position: fixed;
+  bottom: 8px;
+  right: 12px;
+  font-size: 10px;
+  color: var(--muted);
+  background: rgba(16, 20, 26, 0.6);
+  padding: 4px 8px;
+  border-radius: 6px;
+  z-index: 10;
+  max-width: 500px;
+}
+
+/* --- teleport overlay -------------------------------------------------------------- */
 #teleportOverlay {
   position: fixed;
   inset: 0;
@@ -179,15 +260,16 @@ input[type="range"] {
   height: 28px;
   margin: 0 auto 12px;
   border: 3px solid rgba(255, 255, 255, 0.2);
-  border-top-color: #7ec8e3;
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* --- cookie banner ------------------------------------------------------------------ */
 #cookieBanner {
   position: fixed;
-  bottom: 16px;
+  bottom: 70px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -196,10 +278,10 @@ input[type="range"] {
   width: min(92vw, 420px);
   padding: 14px 18px;
   background: var(--panel-bg);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border);
   border-radius: 12px;
   backdrop-filter: blur(8px);
-  z-index: 30;
+  z-index: 40;
   font-size: 13px;
   line-height: 1.4;
 }
@@ -229,46 +311,63 @@ input[type="range"] {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.25);
 }
-.cookie-btn:hover {
-  background: rgba(255, 255, 255, 0.07);
-}
+.cookie-btn:hover { background: rgba(255, 255, 255, 0.07); }
 
-#attrib {
-  position: fixed;
-  bottom: 8px;
-  right: 12px;
-  font-size: 10px;
-  color: var(--muted);
-  background: rgba(16, 20, 26, 0.6);
-  padding: 4px 8px;
-  border-radius: 6px;
-  z-index: 10;
-}
-
-/* --- mobile ---------------------------------------------------------------- */
-@media (max-width: 640px) {
-  #panelToggle { display: flex; }
-
-  #panel {
-    top: auto;
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
-    width: auto;
-    max-height: 48vh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 12px 14px;
-  }
-
-  #panel h1 { font-size: 16px; }
+/* --- medium widths: credits are a full-width strip at the very bottom,
+     slider stacked above so they never overlap ---------------------------- */
+@media (min-width: 641px) and (max-width: 1100px) {
+  #exagBar { bottom: 54px; }
 
   #attrib {
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: none;
+    border-radius: 0;
+    font-size: 9px;
+    line-height: 1.5;
+    padding: 4px 10px 6px;
+    text-align: center;
+    white-space: normal;
+    word-break: break-word;
+  }
+}
+
+/* --- mobile --------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  #searchBar { width: calc(100vw - 140px); }
+
+  /* settings lives top-right on mobile */
+  #panelToggle { top: 12px; left: auto; right: 12px; }
+
+  #panel {
+    top: 64px;
+    left: auto;
+    right: 12px;
     bottom: auto;
-    top: 10px;
-    right: 10px;
-    left: 64px;
+    width: min(80vw, 270px);
+    max-height: 46vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* credits: full-width footer strip glued to the very bottom, wrapping;
+     slider sits above it so nothing gets covered */
+  #exagBar { bottom: 52px; }
+
+  #attrib {
+    bottom: 0;
+    top: auto;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: none;
+    border-radius: 0;
     font-size: 8px;
-    text-align: right;
+    line-height: 1.5;
+    padding: 4px 10px 6px;
+    text-align: center;
+    white-space: normal;
+    word-break: break-word;
   }
 }

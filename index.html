@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>3D Topography Map</title>
   <link rel="stylesheet" href="css/style.css" />
   <script type="importmap">
@@ -15,25 +15,52 @@
   </script>
 </head>
 <body>
-  <button id="panelToggle" aria-label="toggle controls">⚙</button>
+  <button id="panelToggle" class="icon-box" aria-label="settings">⚙</button>
+
+  <div id="searchBar">
+    <input type="search" id="searchInput" placeholder="Search a place…" autocomplete="off" />
+    <div id="searchResults"></div>
+  </div>
+
   <div id="panel">
     <h1>3D Topography Map <span>streaming terrain</span></h1>
-    <p id="status">loading…</p>
-
-    <div id="searchWrap">
-      <input type="search" id="searchInput" placeholder="Search a place…" autocomplete="off" />
-      <div id="searchResults"></div>
-    </div>
-
-    <div class="control">
-      <label for="exaggeration">Vertical exaggeration <output id="exagVal">6×</output></label>
-      <input type="range" id="exaggeration" min="1" max="60" step="0.5" value="6" />
-    </div>
-
+    <p id="status" class="hint">loading…</p>
     <p id="flySpeed" class="hint"></p>
-    <p class="hint" id="hintDesktop">click the view to fly · WASD — move · Space / C — up / down · Shift — sprint · wheel — speed · Esc — release mouse</p>
-    <p class="hint" id="hintTouch">one finger — orbit · pinch — zoom · two fingers — pan · tap ⚙ for the slider</p>
+    <p class="hint" id="hintDesktop">click the view to fly · Esc releases the mouse</p>
+    <p class="hint" id="hintTouch">one finger — orbit · pinch — zoom · two fingers — pan</p>
   </div>
+
+  <div id="exagBar">
+    <label for="exaggeration">Exaggeration <output id="exagVal">6×</output></label>
+    <input type="range" id="exaggeration" min="1" max="60" step="0.5" value="6" />
+  </div>
+
+  <div id="keyHelp">
+    <button id="keyHelpClose" class="icon-box" aria-label="hide help">✕</button>
+    <div class="key-groups">
+      <div class="key-group">
+        <div class="key-desc">move</div>
+        <div class="key-row"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>
+      </div>
+      <div class="key-group">
+        <div class="key-desc">up / down</div>
+        <div class="key-row"><kbd>Space</kbd><kbd>C</kbd></div>
+      </div>
+      <div class="key-group">
+        <div class="key-desc">sprint</div>
+        <div class="key-row"><kbd>Shift</kbd></div>
+      </div>
+      <div class="key-group">
+        <div class="key-desc">speed</div>
+        <div class="key-row"><kbd>Scroll</kbd></div>
+      </div>
+      <div class="key-group">
+        <div class="key-desc">release mouse</div>
+        <div class="key-row"><kbd>Esc</kbd></div>
+      </div>
+    </div>
+  </div>
+  <button id="keyHelpOpen" class="icon-box" aria-label="show help">?</button>
 
   <footer id="attrib">
     Elevation: Mapzen/Tilezen terrain (SRTM et al.), AWS Open Data ·
@@ -42,11 +69,18 @@
   </footer>
 
   <script>
-    // show the right hint for the input modality
+    // hint + key help visibility by input modality
     if (matchMedia('(pointer: coarse)').matches) {
       document.getElementById('hintDesktop').style.display = 'none';
+      document.getElementById('keyHelp').style.display = 'none';
+      document.getElementById('keyHelpOpen').style.display = 'none';
     } else {
       document.getElementById('hintTouch').style.display = 'none';
+      if (localStorage.getItem('keyHelpHidden') === '1') {
+        document.getElementById('keyHelp').style.display = 'none';
+      } else {
+        document.getElementById('keyHelpOpen').style.display = 'none';
+      }
     }
   </script>
   <script type="module" src="js/app.js"></script>

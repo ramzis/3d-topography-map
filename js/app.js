@@ -65,27 +65,41 @@ $('exaggeration').addEventListener('input', (e) => {
   wards.updateExaggeration(f);
 });
 
-// --- panel toggle (mobile) ------------------------------------------------------------
+// --- settings panel + key help -------------------------------------------------------
 const isTouch = matchMedia('(pointer: coarse)').matches;
-if (isTouch) document.body.classList.add('panel-collapsed');
 $('panelToggle').addEventListener('click', () =>
-  document.body.classList.toggle('panel-collapsed')
+  document.body.classList.toggle('panel-open')
 );
+
+if (!isTouch) {
+  const help = $('keyHelp');
+  const openBtn = $('keyHelpOpen');
+  $('keyHelpClose').addEventListener('click', () => {
+    help.style.display = 'none';
+    openBtn.style.display = '';
+    localStorage.setItem('keyHelpHidden', '1');
+  });
+  openBtn.addEventListener('click', () => {
+    help.style.display = '';
+    openBtn.style.display = 'none';
+    localStorage.setItem('keyHelpHidden', '0');
+  });
+}
+// touch devices keep the OrbitControls gestures:
+// one finger — orbit, pinch — zoom, two fingers — pan
 
 // --- camera: fly mode on desktop, touch-orbit on mobile --------------------------------
 const fly = new FlyRig(camera, renderer.domElement, {
   getGroundY: (wx, wz) => manager.groundWorldY(wx, wz),
 });
 fly.onSpeed = (s) => {
-  const el = $('flySpeed');
-  el.textContent = `speed: ${s.toFixed(0)} · sprint ×4`;
+  $('flySpeed').textContent = `fly speed: ${s.toFixed(0)} · sprint ×4`;
 };
 
 if (!isTouch) {
   // desktop: spectator fly camera (click the view to capture the mouse)
   controls.enabled = false;
   fly.enable();
-  $('flySpeed').style.display = '';
 }
 // touch devices keep the OrbitControls gestures:
 // one finger — orbit, pinch — zoom, two fingers — pan
