@@ -117,9 +117,67 @@ if (!isTouch) {
   // desktop: spectator fly camera (click the view to capture the mouse)
   controls.enabled = false;
   fly.enable();
+} else {
+  // touch map gestures: one finger pans the map along the ground,
+  // two fingers rotate the view in place (pinch still zooms)
+  controls.touches.ONE = THREE.TOUCH.PAN;
+  controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
+  controls.screenSpacePanning = false; // pan in the ground plane, map-style
 }
-// touch devices keep the OrbitControls gestures:
-// one finger — orbit, pinch — zoom, two fingers — pan
+
+// --- double-tap / double-click: raycast the tapped spot and glide there -----------
+const tapRay = new THREE.Raycaster();
+let glide = null; // { t0, dur, fromPos, fromTarget, toPos, toTarget }
+let lastTapAt = 0, lastTapX = 0, lastTapY = 0, touchStartX = 0, touchStartY = 0;
+
+function glideToScreen(cx, cy) {
+  tapRay.setFromCamera(
+    new THREE.Vector2((cx / innerWidth) * 2 - 1, -(cy / innerHeight) * 2 + 1),
+    camera
+  );
+  const meshes = [];
+  for (const c of manager.chunks.values()) if (c.terrain && c.group.visible) meshes.push(c.terrain);
+  const hit = tapRay.intersectObjects(meshes, false)[0];
+  if (!hit) return;
+  const gy = manager.groundWorldY(hit.point.x, hit.point.z);
+  if (gy === null) return;
+  const toTarget = new THREE.Vector3(hit.point.x, gy, hit.point.z);
+  // keep the current view offset (height + direction) relative to the target
+  const offset = camera.position.clone().sub(controls.target);
+  glide = {
+    t0: performance.now(),
+    dur: 700,
+    fromPos: camera.position.clone(),
+    fromTarget: controls.target.clone(),
+    toTarget,
+    toPos: toTarget.clone().add(offset),
+  };
+  if (fly.enabled) fly.velocity.set(0, 0, 0);
+}
+
+renderer.domElement.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1) {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }
+}, { passive: true });
+renderer.domElement.addEventListener('touchend', (e) => {
+  if (e.changedTouches.length !== 1 || glide) return;
+  const t = e.changedTouches[0];
+  // ignore taps that were really drags
+  if (Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY) > 12) return;
+  const now = performance.now();
+  const isDouble =
+    now - lastTapAt < 320 && Math.hypot(t.clientX - lastTapX, t.clientY - lastTapY) < 40;
+  lastTapAt = now;
+  lastTapX = t.clientX;
+  lastTapY = t.clientY;
+  if (isDouble) {
+    lastTapAt = 0;
+    glideToScreen(t.clientX, t.clientY);
+  }
+});
+if (!isTouch) renderer.domElement.addEventListener('dblclick', (e) => glideToScreen(e.clientX, e.clientY));
 
 // --- label fade: hide names once they shrink below readable size ------------------
 function updateLabelFade() {
@@ -224,6 +282,14 @@ renderer.setAnimationLoop((t) => {
       const gy = manager.groundWorldY(p.x, p.z);
       if (gy !== null && p.y < gy + 2) p.y = gy + 2;
     }
+  }
+  if (glide) {
+    // ease camera + orbit target to the double-tapped spot
+    const k = Math.min(1, (performance.now() - glide.t0) / glide.dur);
+    const s = k < 0.5 ? 2 * k * k : 1 - ((-2 * k + 2) ** 2) / 2; // ease-in-out quad
+    camera.position.lerpVectors(glide.fromPos, glide.toPos, s);
+    controls.target.lerpVectors(glide.fromTarget, glide.toTarget, s);
+    if (k >= 1) glide = null;
   }
   if (t - lastChunkUpdate > 400) {
     lastChunkUpdate = t;
