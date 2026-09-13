@@ -5,6 +5,8 @@ import { WardOverlay } from './wards.js';
 import { FlyRig } from './fly.js';
 import { PlacesLayer } from './places.js';
 import { initAnalytics } from './analytics.js';
+import { mountSearch } from './search.js';
+import { teleportTo } from './teleport.js';
 
 const DEFAULT_EXAGGERATION = 6;
 
@@ -127,6 +129,11 @@ addEventListener('resize', () => {
 });
 
 initAnalytics();
+
+// --- search + teleport ------------------------------------------------------------
+mountSearch({
+  onSelect: (place) => teleportTo(place, { camera, controls, fly, manager }),
+});
 
 let lastChunkUpdate = 0;
 let lastFrameT = 0;

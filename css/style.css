@@ -96,6 +96,95 @@ input[type="range"] {
 
 #flySpeed { color: #7ec8e3; }
 
+/* --- search ---------------------------------------------------------------- */
+#searchWrap { margin: 0 0 12px; }
+
+#searchInput {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  outline: none;
+}
+#searchInput:focus { border-color: rgba(126, 200, 227, 0.6); }
+
+#searchResults {
+  margin-top: 4px;
+  background: rgba(20, 24, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.search-result {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  padding: 7px 10px;
+  text-align: left;
+  font-size: 12.5px;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+.search-result:last-child { border-bottom: none; }
+.search-result:hover { background: rgba(255, 255, 255, 0.08); }
+.search-sub { font-size: 11px; color: var(--muted); }
+.search-status { padding: 7px 10px; font-size: 12px; color: var(--muted); }
+
+/* --- teleport overlay ------------------------------------------------------- */
+#teleportOverlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 13, 18, 0.55);
+  backdrop-filter: blur(3px);
+  z-index: 50;
+  transition: opacity 0.45s;
+}
+#teleportOverlay.fade-out { opacity: 0; }
+
+.teleport-card { text-align: center; color: var(--text); font-size: 15px; }
+
+.teleport-plane-track {
+  position: relative;
+  height: 64px;
+  width: 280px;
+  margin: 0 auto 12px;
+  overflow: hidden;
+  border-bottom: 2px dashed rgba(255, 255, 255, 0.25);
+}
+.teleport-plane {
+  position: absolute;
+  bottom: 4px;
+  font-size: 30px;
+  animation: planeFly 2.2s linear infinite;
+}
+@keyframes planeFly {
+  from { left: -44px; transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+  to { left: 292px; transform: translateY(0); }
+}
+
+.teleport-spinner {
+  width: 28px;
+  height: 28px;
+  margin: 0 auto 12px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #7ec8e3;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 #cookieBanner {
   position: fixed;
   bottom: 16px;

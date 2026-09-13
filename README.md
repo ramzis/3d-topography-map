@@ -35,6 +35,10 @@ in the repo root keeps GitHub's Jekyll processing off.
   camera above the surface.
 - **Touch** — one finger orbit, pinch zoom, two-finger pan. Tap ⚙ for the
   slider.
+- **Search & teleport** — type a place name in the search box (OpenStreetMap
+  Nominatim geocoding, debounced); clicking a result shows a "✈️ Flying
+  to…" overlay with a spinner, teleports the camera there, and stays until
+  the destination's terrain chunks with imagery are loaded.
 - **Vertical exaggeration** slider, 1×–60× (default 6×).
 
 ## How it works
@@ -86,8 +90,11 @@ js/png-decoder.js  pure-JS PNG decoder for elevation tiles
 js/chunks.js       Chunk + ChunkManager (viewport-driven load/dispose, imagery LOD)
 js/wards.js        ward boundaries + centroid labels
 js/places.js       streaming place names (Overpass)
+js/search.js       place search UI (Nominatim geocoding)
+js/teleport.js     teleport + "Flying" overlay + arrival detection
 js/fly.js          WASD + pointer-lock spectator fly camera
 js/labels.js       canvas-texture name sprites
+js/analytics.js    consent-gated Google Analytics + 🍪 banner
 js/app.js          scene, UI wiring, render loop
 ```
 

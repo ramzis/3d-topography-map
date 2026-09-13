@@ -20,6 +20,11 @@
     <h1>3D Topography Map <span>streaming terrain</span></h1>
     <p id="status">loading…</p>
 
+    <div id="searchWrap">
+      <input type="search" id="searchInput" placeholder="Search a place…" autocomplete="off" />
+      <div id="searchResults"></div>
+    </div>
+
     <div class="control">
       <label for="exaggeration">Vertical exaggeration <output id="exagVal">6×</output></label>
       <input type="range" id="exaggeration" min="1" max="60" step="0.5" value="6" />

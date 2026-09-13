@@ -12,6 +12,11 @@ const ACCEL = 10;       // how quickly velocity approaches target (1/s)
 const DAMPING = 6;      // velocity decay when no input (1/s)
 const SPRINT = 4;
 
+const isTypingTarget = (e) => {
+  const t = e.target;
+  return t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+};
+
 export class FlyRig {
   constructor(camera, dom, { getGroundY } = {}) {
     this.camera = camera;
@@ -33,11 +38,14 @@ export class FlyRig {
       this.camera.quaternion.setFromEuler(this._euler);
     };
     this._onKeyDown = (e) => {
-      if (!this.enabled) return;
+      if (!this.enabled || isTypingTarget(e)) return;
       this.keys.add(e.code);
       if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'KeyC'].includes(e.code)) e.preventDefault();
     };
-    this._onKeyUp = (e) => this.keys.delete(e.code);
+    this._onKeyUp = (e) => {
+      if (isTypingTarget(e)) return;
+      this.keys.delete(e.code);
+    };
     this._onWheel = (e) => {
       if (!this.enabled) return;
       this.baseSpeed = Math.max(1, Math.min(150, this.baseSpeed * (e.deltaY > 0 ? 0.85 : 1.18)));
