@@ -86,10 +86,6 @@ wards
 // --- UI -------------------------------------------------------------------------------
 const $ = (id) => document.getElementById(id);
 
-manager.onStatus.push(({ loaded, loading }) => {
-  $('status').textContent = `${loaded} chunks loaded${loading ? ` · ${loading} streaming…` : ''}`;
-});
-
 $('exaggeration').addEventListener('input', (e) => {
   const f = Number(e.target.value);
   $('exagVal').textContent = `${f}×`;
@@ -97,11 +93,8 @@ $('exaggeration').addEventListener('input', (e) => {
   wards.updateExaggeration(f);
 });
 
-// --- settings panel --------------------------------------------------------------------
+// --- camera: fly mode on desktop, touch-orbit on mobile --------------------------------
 const isTouch = matchMedia('(pointer: coarse)').matches;
-$('panelToggle').addEventListener('click', () =>
-  document.body.classList.toggle('panel-open')
-);
 // touch devices keep the OrbitControls gestures:
 // one finger — orbit, pinch — zoom, two fingers — pan
 
@@ -110,7 +103,7 @@ const fly = new FlyRig(camera, renderer.domElement, {
   getGroundY: (wx, wz) => manager.groundWorldY(wx, wz),
 });
 fly.onSpeed = (s) => {
-  $('flySpeed').textContent = `fly speed: ${s.toFixed(0)} · sprint ×4`;
+  document.title = `fly speed ${s.toFixed(0)} · 3D Topography Map`;
 };
 
 // --- always-day toggle: pin the sun to local noon ------------------------------------

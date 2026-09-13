@@ -59,8 +59,7 @@ canvas { display: block; touch-action: none; }
 .icon-box.on { color: #ffd166; } /* sun active: warm gold icon on the same glass */
 .btn-label { line-height: 1; }
 
-#panelToggle { top: 12px; left: 12px; }
-#sunBtn { top: 12px; left: 62px; }
+#sunBtn { top: 12px; left: 12px; } /* top-left corner */
 
 /* --- nav bar: search + dice (top center, always) ----------------------------------- */
 #navBar {
@@ -70,20 +69,42 @@ canvas { display: block; touch-action: none; }
   transform: translateX(-50%);
   display: flex;
   gap: 8px;
+  align-items: stretch; /* search bar and buttons share one height */
   width: min(60vw, 420px);
   z-index: 20;
 }
 
-/* --- location status ("Vilnius, Lithuania") right of the settings button ------------ */
-#locationStatus {
+/* --- bottom column: location row + exaggeration bar --------------------------------- */
+#bottomCol {
   position: fixed;
-  top: 12px;
-  left: 124px; /* settings 12px + 42px + sun button 54px + 8px gaps */
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column; /* two rows: location+share on top, slider below */
+  gap: 8px;
+  width: min(80vw, 340px);
+  z-index: 19;
+}
+
+#locRow {
+  display: flex;
+  gap: 8px;
+}
+
+#locRow #shareBtn {
+  position: static;
+  flex-shrink: 0;
+}
+
+#locationStatus {
+  position: static;
+  flex: 1;
+  min-width: 0; /* allow ellipsis inside flex */
   display: flex;
   align-items: center;
   gap: 7px;
   height: 42px;
-  max-width: min(70vw, 340px);
   padding: 0 14px;
   font-size: 13px;
   white-space: nowrap;
@@ -112,11 +133,14 @@ canvas { display: block; touch-action: none; }
 #searchBar {
   position: relative;
   flex: 1;
+  display: flex;
+  align-items: stretch; /* input fills whatever height the row has */
 }
 
 #searchInput {
-  width: 100%;
-  padding: 9px 18px;
+  flex: 1;
+  align-self: stretch; /* fill the nav row height set by the buttons */
+  padding: 0 18px;
   font-size: 16px; /* >=16px prevents iOS focus zoom */
   color: var(--text);
   background: var(--box-bg);
@@ -172,43 +196,8 @@ canvas { display: block; touch-action: none; }
   to { transform: rotate(360deg); }
 }
 
-/* --- settings panel (⚙) ------------------------------------------------------ */
-#panel {
-  position: fixed;
-  top: 64px;
-  left: 12px;
-  width: 270px;
-  padding: 14px 16px;
-  background: var(--panel-bg);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: var(--glass-shadow);
-  z-index: 15;
-}
-body:not(.panel-open) #panel { display: none; }
-
-#panel h1 {
-  margin: 0 0 8px;
-  font-size: 15px;
-  font-weight: 600;
-}
-#panel h1 span {
-  display: block;
-  font-size: 10px;
-  font-weight: 400;
-  color: var(--muted);
-  margin-top: 2px;
-}
-
 /* --- exaggeration slider (bottom center, always) ------------------------------ */
 #exagBar {
-  position: fixed;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(80vw, 340px);
   padding: 10px 16px;
   background: var(--box-bg);
   border: 1px solid var(--border);
@@ -216,7 +205,6 @@ body:not(.panel-open) #panel { display: none; }
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   box-shadow: var(--glass-shadow);
-  z-index: 20;
 }
 #exagBar label {
   display: flex;
@@ -404,8 +392,7 @@ kbd {
 /* --- medium widths: credits are a full-width strip at the very bottom,
      slider stacked above so they never overlap ---------------------------- */
 @media (min-width: 641px) and (max-width: 1100px) {
-  #navBar { width: min(70vw, 420px); }
-  #exagBar { bottom: 54px; }
+  #bottomCol { bottom: 54px; }
 
   #attrib {
     left: 0;
@@ -422,29 +409,21 @@ kbd {
   }
 }
 
-/* --- mobile --------------------------------------------------------------------------- */
-@media (max-width: 640px) {
-  #navBar { width: calc(100vw - 130px); }
-
-  /* settings lives top-right on mobile; sun + location stack top-left */
+/* --- narrow screens: two-column layout -----------------------------------------------
+   column 1 (left edge): Sun button
+   column 2 (rest of width): search bar (with Random button at its right) */
+@media (max-width: 1100px) {
   #sunBtn { top: 12px; left: 12px; }
-  #locationStatus { left: 74px; max-width: calc(100vw - 210px); }
-  #panelToggle { top: 12px; left: auto; right: 12px; }
 
-  #panel {
-    top: 64px;
-    left: auto;
+  #navBar {
+    top: 12px;
+    left: 62px;
     right: 12px;
-    bottom: auto;
-    width: min(80vw, 270px);
-    max-height: 46vh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    transform: none;
+    width: auto;
   }
 
-  /* credits: full-width footer strip glued to the very bottom, wrapping;
-     slider sits above it so nothing gets covered */
-  #exagBar { bottom: 52px; }
+  #bottomCol { bottom: 52px; } /* above the attrib strip */
 
   #attrib {
     bottom: 0;
