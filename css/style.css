@@ -1,0 +1,137 @@
+:root {
+  --panel-bg: rgba(20, 24, 30, 0.88);
+  --text: #e8eaed;
+  --muted: #9aa3ad;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #10141a;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--text);
+}
+
+canvas { display: block; touch-action: none; }
+
+#panelToggle {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--panel-bg);
+  color: var(--text);
+  font-size: 20px;
+  backdrop-filter: blur(8px);
+  z-index: 20;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+body.panel-collapsed #panel { display: none; }
+
+#panel {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  width: 280px;
+  padding: 14px 16px;
+  background: var(--panel-bg);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  z-index: 10;
+}
+
+#panel h1 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+#panel h1 span {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+#status {
+  margin: 0 0 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.control { margin: 10px 0; }
+.control label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.control output { color: var(--muted); }
+
+input[type="range"] {
+  width: 100%;
+  accent-color: #7ec8e3;
+}
+
+.hint {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+#flySpeed { color: #7ec8e3; }
+
+#attrib {
+  position: fixed;
+  bottom: 8px;
+  right: 12px;
+  font-size: 10px;
+  color: var(--muted);
+  background: rgba(16, 20, 26, 0.6);
+  padding: 4px 8px;
+  border-radius: 6px;
+  z-index: 10;
+}
+
+/* --- mobile ---------------------------------------------------------------- */
+@media (max-width: 640px) {
+  #panelToggle { display: flex; }
+
+  #panel {
+    top: auto;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+    max-height: 48vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px 14px;
+  }
+
+  #panel h1 { font-size: 16px; }
+
+  #attrib {
+    bottom: auto;
+    top: 10px;
+    right: 10px;
+    left: 64px;
+    font-size: 8px;
+    text-align: right;
+  }
+}
