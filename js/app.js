@@ -17,6 +17,7 @@ import {
 } from './state.js';
 
 const DEFAULT_EXAGGERATION = 6;
+const ALWAYS_NOON_DEFAULT = true; // sun toggle starts on — always daytime
 
 // --- renderer / scene -----------------------------------------------------------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -104,6 +105,10 @@ const fly = new FlyRig(camera, renderer.domElement, {
 });
 
 // --- always-day toggle: pin the sun to local noon ------------------------------------
+// on by default — daytime, until the user turns it off
+sky.setAlwaysNoon(ALWAYS_NOON_DEFAULT);
+$('sunBtn').classList.toggle('on', ALWAYS_NOON_DEFAULT);
+
 $('sunBtn').addEventListener('click', () => {
   const on = !sky.alwaysNoon;
   sky.setAlwaysNoon(on);
