@@ -1,7 +1,3 @@
-/**
- * Place search using OpenStreetMap's Nominatim geocoder (open, keyless).
- * Debounced; on result click, teleports the camera there.
- */
 const DEBOUNCE_MS = 800; // Nominatim usage policy: max ~1 request/second
 const MIN_QUERY = 2;
 

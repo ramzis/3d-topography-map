@@ -1,13 +1,6 @@
 import * as THREE from 'three';
 import { worldToMerc, mercXToLon, mercYToLat } from './geo.js';
 
-/**
- * Day/night sky: a shader dome whose gradient, sun disc, and moon (with
- * phase) follow the real current sun/moon position for the viewed
- * location, plus stars and time-appropriate terrain lighting.
- * All computations are local — no assets, no services.
- */
-
 const RAD = Math.PI / 180;
 
 // --- astronomy -------------------------------------------------------------------
@@ -15,7 +8,6 @@ function julianDate(date) {
   return date.getTime() / 86400000 + 2440587.5;
 }
 
-/** Sun elevation/azimuth (deg) for a date and geographic position. */
 function sunPosition(date, lat, lon) {
   const jd = julianDate(date);
   const n = jd - 2451545.0;
@@ -26,11 +18,6 @@ function sunPosition(date, lat, lon) {
   return eclipticToHorizontal(lambda, eps, date, lat, lon);
 }
 
-/**
- * Moon elevation/azimuth (deg) + illuminated fraction, via a synodic-phase
- * approximation of the moon's ecliptic longitude (accurate to a few degrees,
- * fine for a sky disc).
- */
 function moonPosition(date, lat, lon) {
   const jd = julianDate(date);
   const synodic = 29.530588853;
@@ -50,7 +37,6 @@ function moonPosition(date, lat, lon) {
   return { ...pos, illum, phase };
 }
 
-/** Ecliptic longitude -> altitude/azimuth at a place and time. */
 function eclipticToHorizontal(lambda, eps, date, lat, lon) {
   const alpha = Math.atan2(Math.cos(eps) * Math.sin(lambda), Math.cos(lambda));
   const delta = Math.asin(Math.sin(eps) * Math.sin(lambda));
@@ -70,7 +56,6 @@ function eclipticToHorizontal(lambda, eps, date, lat, lon) {
   return { elevation: alt / RAD, azimuth: az / RAD };
 }
 
-/** az measured clockwise from north; our world has north = -z. */
 function skyDirection(elevationDeg, azimuthDeg) {
   const e = elevationDeg * RAD;
   const a = azimuthDeg * RAD;
@@ -207,14 +192,12 @@ export class DayNightSky {
     this.alwaysNoon = false;
   }
 
-  /** Always-day mode: pin the sun to local solar noon (skips night). */
   setAlwaysNoon(on) {
     this.alwaysNoon = on;
     this.lastAstroAt = 0; // force recompute on next update
     this.lastPlace = null;
   }
 
-  /** Recompute sun/moon for the current time at the viewed location. */
   _recompute(target) {
     const [mx, my] = worldToMerc(target.x, target.z);
     const lon = mercXToLon(mx);
@@ -259,7 +242,6 @@ export class DayNightSky {
     this.starMat.opacity = this.uniforms.uNight.value * 0.9;
   }
 
-  /** Call each frame; recomputes astro on a slow cadence or after movement. */
   update(camera, target) {
     this.group.position.copy(camera.position);
     const now = performance.now();
@@ -271,7 +253,6 @@ export class DayNightSky {
     }
   }
 
-  /** Fog color that matches the horizon at the current time. */
   get fogColor() {
     const day = this.uniforms.uDay.value;
     return new THREE.Color(0x0a0f1e).lerp(new THREE.Color(0xbfd0e0), day);

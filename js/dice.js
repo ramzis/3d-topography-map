@@ -1,12 +1,5 @@
 import { fetchElevationGrid } from './geo.js';
 
-/**
- * Random-place dice roll: picks a uniformly random point on Earth and
- * retries until it lands on solid ground (elevation tiles encode ocean as
- * negative bathymetry, so a simple elevation check rejects water).
- * The destination is reverse-geocoded for a friendly name.
- */
-
 const MAX_TRIES = 30;
 const MIN_LAND_ELEV = 2; // metres — avoids beaches and tidal flats
 
@@ -27,7 +20,6 @@ export async function rollRandomLandPlace() {
   return { lat: 54.6858, lon: 25.2848, name: 'Vilnius' };
 }
 
-/** Elevation (m) at a lat/lon from the z8 terrarium tile, or null if unavailable. */
 async function sampleElevationAt(lat, lon) {
   try {
     const zoom = 8;
@@ -48,7 +40,6 @@ async function sampleElevationAt(lat, lon) {
   }
 }
 
-/** "Somewhere, Country" via OSM Nominatim reverse geocoding (best effort). */
 async function reverseGeocodeName(lat, lon) {
   try {
     const ctrl = new AbortController();

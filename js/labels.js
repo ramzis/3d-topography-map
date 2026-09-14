@@ -1,13 +1,5 @@
 import * as THREE from 'three';
 
-/**
- * Canvas-texture text sprite that always faces the camera.
- *
- * @param {string} text
- * @param {string} color   CSS color
- * @param {number} heightUnits  sprite height in scene units
- * @returns {THREE.Sprite}
- */
 export function makeLabel(text, color, heightUnits) {
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
     depthTest: false,
@@ -19,7 +11,6 @@ export function makeLabel(text, color, heightUnits) {
   return sprite;
 }
 
-/** Regenerate the sprite's texture with a new color (text is unchanged). */
 export function recolorLabel(sprite, color) {
   const { text, heightUnits } = sprite.userData.labelParams;
   const font = '600 96px system-ui, -apple-system, "Segoe UI", sans-serif';

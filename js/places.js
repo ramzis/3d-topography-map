@@ -2,11 +2,6 @@ import * as THREE from 'three';
 import { makeLabel } from './labels.js';
 import { worldToMerc, mercXToLon, mercYToLat, lonToMercX, latToMercY, mercToWorld } from './geo.js';
 
-/**
- * Streaming place-name layer: fetches city/town/village labels from
- * OpenStreetMap (Overpass API) for the area currently in view, so names
- * keep appearing as you fly around the world.
- */
 const QUERY_COOLDOWN_MS = 6000;
 const MOVE_THRESHOLD = 0.4; // re-query after moving 40% of the query radius
 
@@ -23,11 +18,6 @@ export class PlacesLayer {
     this.inFlight = false;
   }
 
-  /**
-   * @param {THREE.Camera} camera
-   * @param {THREE.Vector3} target   orbit/fly target (world units)
-   * @param {number} tNow             animation timestamp (ms)
-   */
   update(camera, target, tNow) {
     if (this.inFlight || tNow - this.lastQueryAt < QUERY_COOLDOWN_MS) return;
     const radius = Math.max(10, Math.min(120, camera.position.distanceTo(target) * 1.4));
@@ -81,10 +71,6 @@ export class PlacesLayer {
     }
   }
 
-  /**
-   * Keep sprites at the terrain surface (called each frame).
-   * @param {(wx, wz) => number|null} groundYAt  terrain world y or null if unloaded
-   */
   updatePositions(groundYAt) {
     for (const p of this.places.values()) {
       const gy = groundYAt(p.wx, p.wz);

@@ -1,13 +1,6 @@
 import * as THREE from 'three';
 import { lonToMercX, latToMercY, mercToWorld, worldToMerc, mercXToLon, mercYToLat } from './geo.js';
 
-/**
- * Shareable view state: camera position + orientation + exaggeration,
- * serialized to URL query params (share links) and localStorage (refresh).
- *
- * Priority on load: URL params → localStorage → default view over Vilnius.
- */
-
 const STORAGE_KEY = 'topoMapView';
 const SAVE_INTERVAL_MS = 3000;
 
@@ -82,10 +75,6 @@ export function saveToStorage(state) {
   } catch { /* storage unavailable — URL sharing still works */ }
 }
 
-/**
- * Auto-persist: call each frame; writes URL + localStorage at most every
- * SAVE_INTERVAL_MS, only when the camera actually moved/turned.
- */
 export function createStateSaver(camera, getExaggeration) {
   let last = null;
   let lastSaveAt = 0;

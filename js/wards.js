@@ -24,11 +24,6 @@ function ringAreaCentroid(ring) {
   return [cx / (6 * a), cy / (6 * a), Math.abs(a)];
 }
 
-/**
- * Fetches the seniūnija boundaries once, then decorates each loaded terrain
- * chunk with the ward line segments that fall inside it, and spawns a name
- * sprite at each ward centroid once its chunk arrives.
- */
 export class WardOverlay {
   constructor(manager, scene) {
     this.manager = manager;
@@ -106,7 +101,6 @@ export class WardOverlay {
     }
   }
 
-  /** Decorate chunks that finished loading before the ward data arrived. */
   decorateLoaded() {
     for (const chunk of this.manager.chunks.values()) {
       if (chunk.state === 'ready') this._onChunkReady(chunk);

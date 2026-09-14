@@ -6,7 +6,9 @@ import { FlyRig } from './fly.js';
 import { PlacesLayer } from './places.js';
 import { initAnalytics } from './analytics.js';
 import { mountSearch } from './search.js';
+import { mountGems } from './gems.js';
 import { mountLocationStatus } from './location.js';
+import { FillerLayer } from './filler.js';
 import { teleportTo } from './teleport.js';
 import { DayNightSky } from './sky.js';
 import { rollRandomLandPlace } from './dice.js';
@@ -48,6 +50,7 @@ const manager = new ChunkManager(scene);
 manager.setExaggeration(DEFAULT_EXAGGERATION);
 const wards = new WardOverlay(manager, scene);
 const places = new PlacesLayer(scene);
+const filler = new FillerLayer(scene, manager);
 
 // --- restore shared/saved view state (URL → localStorage → default) ----------------
 const savedState = stateFromUrl() || stateFromStorage();
@@ -77,8 +80,7 @@ manager.update(camera, controls.target);
 
 wards
   .load()
-  .then((n) => {
-    console.log(`wards loaded: ${n}`);
+  .then(() => {
     wards.decorateLoaded();
   })
   .catch((err) => console.warn('wards failed:', err.message));
@@ -93,18 +95,13 @@ $('exaggeration').addEventListener('input', (e) => {
   wards.updateExaggeration(f);
 });
 
-// --- camera: fly mode on desktop, touch-orbit on mobile --------------------------------
-const isTouch = matchMedia('(pointer: coarse)').matches;
 // touch devices keep the OrbitControls gestures:
 // one finger — orbit, pinch — zoom, two fingers — pan
 
-// --- camera: fly mode on desktop, touch-orbit on mobile --------------------------------
+const isTouch = matchMedia('(pointer: coarse)').matches;
 const fly = new FlyRig(camera, renderer.domElement, {
   getGroundY: (wx, wz) => manager.groundWorldY(wx, wz),
 });
-fly.onSpeed = (s) => {
-  document.title = `fly speed ${s.toFixed(0)} · 3D Topography Map`;
-};
 
 // --- always-day toggle: pin the sun to local noon ------------------------------------
 $('sunBtn').addEventListener('click', () => {
@@ -195,22 +192,6 @@ function updateLabelFade() {
   for (const p of places.places.values()) fadeOne(p.sprite);
 }
 
-// --- debug hook -------------------------------------------------------------------------
-window.__vilniusDebug = {
-  manager,
-  camera,
-  controls,
-  fly,
-  wards,
-  places,
-  counts: () => ({
-    ...wards.counts,
-    chunks: manager.readyCount,
-    loading: manager.pending.size,
-    placeNames: places.places.size,
-  }),
-};
-
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
@@ -222,6 +203,11 @@ initAnalytics();
 // --- search + teleport ------------------------------------------------------------
 mountSearch({
   onSelect: (place) => teleportTo(place, { camera, controls, fly, manager }),
+});
+
+// --- location gems: paid teleport list -----------------------------------------
+mountGems({
+  onSelect: (gem) => teleportTo(gem, { camera, controls, fly, manager }),
 });
 
 // --- dice roll: teleport to a random land spot ----------------------------------
@@ -295,6 +281,7 @@ renderer.setAnimationLoop((t) => {
     lastChunkUpdate = t;
     manager.update(camera, controls.target);
     places.update(camera, controls.target, t);
+    filler.update(camera, controls.target);
   }
   sky.update(camera, controls.target);
   scene.fog.color.copy(sky.fogColor);

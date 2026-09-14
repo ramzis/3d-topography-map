@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 
-  <title>3D Topography Map — explore Earth's terrain in 3D</title>
+  <title>World Explorer</title>
   <meta name="description" content="Interactive 3D globe terrain: real elevation data, satellite imagery, live day/night sky, place search and teleport. Fly anywhere on Earth — from Vilnius to anywhere." />
   <meta name="keywords" content="3D map, topography, terrain, elevation, satellite, earth, 3D globe, relief map" />
   <meta name="author" content="tadas" />
@@ -71,6 +71,10 @@
 </head>
 <body>
   <div id="navBar">
+    <button id="sunBtn" class="icon-box labelled" aria-label="always daytime" title="Always daytime">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+      <span class="btn-label">Sun</span>
+    </button>
     <div id="searchBar">
       <input type="search" id="searchInput" placeholder="Search a place…" autocomplete="off" />
       <div id="searchResults"></div>
@@ -79,6 +83,28 @@
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1" fill="currentColor"/></svg>
       <span class="btn-label">Random</span>
     </button>
+  </div>
+
+  <div id="gemsPanel">
+    <div class="gem-head">💎 Location Gems</div>
+
+    <!-- locked: buy + paste the emailed activation code -->
+    <div class="gem-locked">
+      <p class="gem-note">Unlock 100 hand-picked wonders of the world —
+        one tap each to teleport there.</p>
+      <button id="gemBuyBtn" class="gem-buy">💎 Buy Location Gems</button>
+      <p class="gem-note small">Already bought? Check your email for the
+        activation link, or paste the code below:</p>
+      <div class="gem-code-row">
+        <input type="text" id="gemCodeInput" placeholder="paste activation code"
+               autocomplete="off" spellcheck="false" />
+        <button id="gemActivateBtn" class="icon-box">→</button>
+      </div>
+    </div>
+
+    <!-- unlocked: the gem list -->
+    <div id="gemsList"></div>
+    <p id="gemsStatus"></p>
   </div>
 
   <div id="bottomCol">
@@ -98,9 +124,9 @@
     </div>
   </div>
 
-  <button id="sunBtn" class="icon-box labelled" aria-label="always daytime" title="Always daytime">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-    <span class="btn-label">Sun</span>
+  <button id="gemsBtn" class="icon-box labelled" aria-label="location gems" title="Location Gems">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>
+    <span class="btn-label">Gems</span>
   </button>
 
   <div id="keyHelp">

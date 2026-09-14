@@ -1,9 +1,3 @@
-/**
- * Live location status: reverse-geocodes the camera position via Nominatim
- * and shows "Place, Country" under the top nav bar while you travel.
- * Requests are distance-gated (>= 3 km) and rate-limited (>= 3 s apart)
- * to respect Nominatim's usage policy.
- */
 import { worldToMerc, mercXToLon, mercYToLat } from './geo.js';
 
 const MIN_QUERY_INTERVAL_MS = 3000; // hard rate limit between reverse-geocode calls
@@ -50,12 +44,13 @@ export function mountLocationStatus(camera) {
   return update;
 }
 
-/** "Vilnius, Lithuania" from a Nominatim reverse-geocode JSON. */
 function placeLabel(j) {
   const a = j.address || {};
-  const place =
+  let place =
     a.city || a.town || a.village || a.hamlet || a.municipality ||
     a.county || a.state_district || a.state;
+  // skip machine-looking names (osm ids, uuid-like strings)
+  if (place && /^[0-9a-fA-F-]{16,}$/.test(place.trim())) place = undefined;
   const country = a.country;
   if (place && country) return `${place}, ${country}`;
   if (place || country) return place || country;
@@ -65,7 +60,6 @@ function placeLabel(j) {
   return parts[0] || '';
 }
 
-/** great-circle distance in km */
 function distKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const d = Math.PI / 180;

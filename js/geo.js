@@ -1,10 +1,3 @@
-/**
- * Geo + tile plumbing for the streaming terrain.
- * All world coordinates: mercator meters offset from the Vilnius center,
- * scaled to scene units (1 unit = 100 m):  wx = (mx - CX) * V,  wz = -(my - CY) * V
- * (so north = -z).  Vertical: wy = elevation_m * V * exaggeration.
- */
-
 export const V = 0.01; // 1 scene unit = 100 m
 
 import { decodePNG } from './png-decoder.js';
@@ -41,25 +34,19 @@ export const CY = latToMercY(CENTER_LAT);
 const GC = Math.cos(CENTER_LAT * DEG);
 export const WORLD_SCALE = V * GC;
 
-/** mercator meters -> scene units (x east, z south) */
 export function mercToWorld(mx, my) {
   return [(mx - CX) * WORLD_SCALE, -(my - CY) * WORLD_SCALE];
 }
-/** scene units -> mercator meters */
 export function worldToMerc(wx, wz) {
   return [wx / WORLD_SCALE + CX, -wz / WORLD_SCALE + CY];
 }
 
-/** tile span in mercator meters at a zoom */
 export function tileSpanMeters(zoom) {
   return (2 * Math.PI * R) / 2 ** zoom;
 }
 
-/** mercator y of the top of the tile grid (north edge of tile y=0) */
 export const MERC_NORTH = Math.PI * R;
 
-/** chunk/tile x,y at TERRAIN_ZOOM for a world point
- *  (tile x counts eastward from -180°, tile y southward from +85°) */
 export function worldToChunk(wx, wz) {
   const [mx, my] = worldToMerc(wx, wz);
   const ts = tileSpanMeters(TERRAIN_ZOOM);
@@ -122,10 +109,6 @@ function cached(kind, key, loader) {
   return entry.promise;
 }
 
-/**
- * Terrarium elevation tile -> Float32Array(TILE_PX*TILE_PX) of meters.
- * Row 0 = north, col 0 = west (standard image orientation).
- */
 export function fetchElevationGrid(tx, ty, zoom = TERRAIN_ZOOM) {
   return cached('elev', `${zoom}/${tx}/${ty}`, async () => {
     await acquire();
@@ -145,10 +128,6 @@ export function fetchElevationGrid(tx, ty, zoom = TERRAIN_ZOOM) {
   });
 }
 
-/**
- * Esri World Imagery canvas for one terrain tile at IMAGERY_ZOOM
- * (4 child tiles composited into a single 512×512 canvas).
- */
 export function fetchImageryCanvas(tx, ty, zoom = IMAGERY_ZOOM) {
   return cached('img', `${zoom}/${tx}/${ty}`, async () => {
     const k = 2 ** (zoom - TERRAIN_ZOOM);

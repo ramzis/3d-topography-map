@@ -1,11 +1,3 @@
-/**
- * CS-spectator-style fly camera: pointer-lock mouse look + WASD gliding.
- *  - W/S: forward/back along the view direction (pitch included)
- *  - A/D: strafe left/right
- *  - Space: up, C: down
- *  - Shift: 4x sprint
- *  - Mouse wheel: adjust base speed
- */
 import * as THREE from 'three';
 
 const ACCEL = 10;       // how quickly velocity approaches target (1/s)
@@ -88,7 +80,6 @@ export class FlyRig {
     this.velocity.set(0, 0, 0);
   }
 
-  /** Integrate one frame. dt in seconds. */
   update(dt) {
     if (!this.enabled) return;
     const k = this.keys;

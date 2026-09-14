@@ -1,10 +1,3 @@
-/**
- * Consent-gated Google Analytics.
- *
- * A 🍪 banner asks for OK / Not OK; the choice is stored in a cookie for
- * 30 days. The GA script is only ever loaded after an explicit "OK".
- * Replace GA_MEASUREMENT_ID with your own before deploying.
- */
 const GA_MEASUREMENT_ID = 'G-4TW82S9NV1';
 const CONSENT_COOKIE = 'analytics_consent';
 const CONSENT_MAX_AGE = 30 * 24 * 60 * 60; // 1 month, seconds
@@ -35,7 +28,6 @@ function loadGoogleAnalytics() {
   window.gtag('config', GA_MEASUREMENT_ID, { anonymize_ip: true });
 }
 
-/** Mount the 🍪 banner if no stored preference; load GA if already granted. */
 export function initAnalytics() {
   const stored = getConsent();
   if (stored === 'granted') {

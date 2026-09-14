@@ -1,10 +1,5 @@
 import { lonToMercX, latToMercY, mercToWorld, worldToChunk } from './geo.js';
 
-/**
- * Teleport the camera to a place: shows the ✈️ Flying overlay, jumps the
- * camera + streaming target there, and keeps the overlay until the
- * destination chunk (with imagery) is loaded. Resolves when done.
- */
 export function teleportTo({ lat, lon, name }, { camera, controls, fly, manager }) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');

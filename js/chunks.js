@@ -16,11 +16,6 @@ export const CHUNK_SEGS = 36; // 79 m vertex spacing — matches v1's 78 m (2000
 const chunkSpan = tileSpanMeters(TERRAIN_ZOOM);
 export const CHUNK_WORLD_SIZE = chunkSpan * V * Math.cos((54.6858 * Math.PI) / 180);
 
-/**
- * One terrain chunk = one z12 Terrarium tile + its Esri imagery.
- * Heights are absolute elevations (meters); y = elev * V * exaggeration,
- * evaluated on demand so the exaggeration slider stays live.
- */
 class Chunk {
   constructor(tx, ty, scene, satelliteOn) {
     this.tx = tx;
@@ -54,7 +49,6 @@ class Chunk {
     this.wardLines = null; // built externally via setWardLines()
   }
 
-  /** Bilinear elevation sample from the tile grid; u,v in 0..1 (u west->east, v north->south). */
   sampleElev(u, v) {
     const g = this.grid;
     if (!g) return 0;
@@ -68,14 +62,10 @@ class Chunk {
     return e00 * (1 - dx) * (1 - dy) + e10 * dx * (1 - dy) + e01 * (1 - dx) * dy + e11 * dx * dy;
   }
 
-  /** world (x,z) -> (u,v) in tile space */
   worldToUV(wx, wz) {
     return [(wx - this.minX) / CHUNK_WORLD_SIZE, (wz - this.minZ) / CHUNK_WORLD_SIZE];
   }
 
-  /** Build the mesh from the elevation grid (with a skirt — a short wall
-   *  dropped below the chunk border that hides the hairline cracks between
-   *  neighbouring tiles, whose edge elevations never match exactly). */
   buildMesh(defaultColor) {
     const S = CHUNK_WORLD_SIZE;
     const segs = CHUNK_SEGS;
@@ -154,8 +144,6 @@ class Chunk {
     this.scene.add(this.group);
   }
 
-  /** Attach ward-line overlay built by wards.js (chunk-local positions + base elevations).
-   *  Line rendering disabled ("remove the grid lines") — only the ward label sprites remain. */
   setWardLines(geometry, pairs) {
     geometry.dispose();
     this.wardPairs = [];
@@ -177,7 +165,6 @@ class Chunk {
     this.group.visible = true; // imagery ready — show the chunk
   }
 
-  /** Drop a high-tier texture back to the base z13 imagery. */
   downgradeImagery() {
     if ((this.imageryZoom ?? 13) <= 13 || !this.baseTex) return;
     if (this.imageryTex && this.imageryTex !== this.baseTex) this.imageryTex.dispose();
@@ -189,7 +176,6 @@ class Chunk {
     }
   }
 
-  /** Reveal without imagery (fallback when the imagery tile failed). */
   revealWithoutImagery() {
     this.group.visible = true;
   }
@@ -274,9 +260,6 @@ const MAX_CHUNKS = 120; // hard cap so a zoom-out cannot queue thousands of tile
 const SKIRT_DEPTH = 1.5; // scene units (1 unit = 100 m) — covers inter-chunk height mismatch
 const DISPATCH_LIMIT = 10; // loads in flight; the rest wait and re-sort as you look around
 
-/**
- * Loads chunks around the camera target (viewport-driven), disposes far ones.
- */
 export class ChunkManager {
   constructor(scene) {
     this.scene = scene;
@@ -299,7 +282,6 @@ export class ChunkManager {
     for (const cb of this.onStatus) cb(s);
   }
 
-  /** Which chunks should be loaded, given the camera. */
   _wantedChunks(camera, target) {
     // raycast screen corners onto the y=0 plane to get the visible ground bbox
     const corners = [
@@ -354,7 +336,6 @@ export class ChunkManager {
     return keys;
   }
 
-  /** Chunk-center world position for a tile coordinate. */
   chunkCenterWorld(tx, ty) {
     return mercToWorld(
       (tx + 0.5) * chunkSpan - MERC_NORTH,
@@ -362,11 +343,6 @@ export class ChunkManager {
     );
   }
 
-  /**
-   * Loading priority: chunks in front of the camera load first.
-   * score = distance × (1.5 − alignment) — aligned (ahead) chunks get a
-   * discounted distance, chunks behind the viewer are penalized.
-   */
   _viewPriority(key, camera) {
     const [tx, ty] = key.split(',').map(Number);
     const [cx, cz] = this.chunkCenterWorld(tx, ty);
@@ -410,13 +386,6 @@ export class ChunkManager {
     this._updateLod(camera);
   }
 
-  /**
-   * Distance-based imagery LOD:
-   *   far        — z13 (~11 m/px, one tile)
-   *   < 120 u    — z15 (~2.8 m/px, 4 tiles)
-   *   < 25 u     — z16 (~1.4 m/px, 64 tiles) — closest chunks only,
-   *                 one heavy upgrade in flight, only when nothing else loads
-   */
   _updateLod(camera) {
     const cam = camera.position;
     const ready = [...this.chunks.values()].filter((c) => c.state === 'ready');
@@ -452,10 +421,6 @@ export class ChunkManager {
     }
   }
 
-  /** Glue chunk edges: where two loaded chunks meet, force their shared
-   *  border vertex elevations to the average of both tiles' samples, so the
-   *  meshes join exactly — no cracks, regardless of inter-tile sampling
-   *  differences (each tile's edge pixels sit ~78 m apart in the real world). */
   _stitchChunk(chunk) {
     const n = chunk.gridN;
     if (!n) return;
@@ -536,7 +501,6 @@ export class ChunkManager {
     for (const chunk of this.chunks.values()) chunk.setHeights(this.effectiveExaggeration);
   }
 
-  /** Current terrain surface height (scene units) at a world position, or null if not loaded. */
   groundWorldY(wx, wz) {
     for (const chunk of this.chunks.values()) {
       if (wx >= chunk.minX && wx < chunk.maxX && wz >= chunk.minZ && wz < chunk.maxZ) {

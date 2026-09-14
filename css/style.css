@@ -46,11 +46,11 @@ canvas { display: block; touch-action: none; }
 .icon-box:active { transform: scale(0.9); }
 .icon-box svg { width: 20px; height: 20px; display: block; }
 
-/* dice/share buttons: icon + small label underneath */
+/* icon + small label underneath: fixed width, same as plain icon buttons */
 .icon-box.labelled {
   flex-direction: column;
   gap: 1px;
-  width: 54px;
+  width: 42px;
   height: 42px;
   font-size: 8px;
   letter-spacing: 0.02em;
@@ -59,7 +59,64 @@ canvas { display: block; touch-action: none; }
 .icon-box.on { color: #ffd166; } /* sun active: warm gold icon on the same glass */
 .btn-label { line-height: 1; }
 
-#sunBtn { top: 12px; left: 12px; } /* top-left corner */
+#sunBtn { position: static; flex-shrink: 0; } /* lives in the nav bar, first slot */
+
+/* --- gems button: premium, constant rainbow shine ------------------------------- */
+@property --gem-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+
+#gemsBtn {
+  position: fixed;
+  top: 12px;
+  left: 12px; /* top-left corner */
+  border: none; /* the rainbow ring replaces it */
+  overflow: visible;
+}
+/* soft rainbow halo behind the button */
+#gemsBtn::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 17px;
+  background: conic-gradient(from var(--gem-angle),
+    #ff5964, #ffd166, #7ee081, #7ec8e3, #b48ef7, #ff5964);
+  filter: blur(4px);
+  opacity: 0.85;
+  animation: gem-spin 3s linear infinite;
+  pointer-events: none;
+}
+/* crisp rainbow ring hugging the glass */
+#gemsBtn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  padding: 1.5px; /* ring thickness */
+  background: conic-gradient(from var(--gem-angle),
+    #ff5964, #ffd166, #7ee081, #7ec8e3, #b48ef7, #ff5964);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask-composite: exclude;
+  animation: gem-spin 3s linear infinite;
+  pointer-events: none;
+}
+/* icon rides the hue wheel; label is kept plain white below */
+#gemsBtn svg {
+  position: relative;
+  z-index: 2;                    /* above the ::before/::after overlays */
+  color: #ffd166;
+  animation: gem-hue 3s linear infinite;
+}
+/* keep the label plain and readable — the rainbow lives on the ring */
+#gemsBtn .btn-label {
+  position: relative;
+  z-index: 2;                    /* always above the ::before/::after overlays */
+  color: #ffffff;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+@keyframes gem-spin { to { --gem-angle: 360deg; } }
+@keyframes gem-hue { to { filter: hue-rotate(360deg); } }
 
 /* --- nav bar: search + dice (top center, always) ----------------------------------- */
 #navBar {
@@ -104,12 +161,13 @@ canvas { display: block; touch-action: none; }
   display: flex;
   align-items: center;
   gap: 7px;
-  height: 42px;
-  padding: 0 14px;
+  min-height: 42px; /* grows with wrapped text instead of clipping */
+  padding: 6px 14px;
   font-size: 13px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere; /* long unbroken tokens (ids) wrap too */
+  text-align: left;
+  line-height: 1.35;
   color: var(--text);
   background: var(--box-bg);
   border: 1px solid var(--border);
@@ -168,6 +226,113 @@ canvas { display: block; touch-action: none; }
   -webkit-backdrop-filter: blur(8px);
   box-shadow: var(--glass-shadow);
 }
+
+/* --- location gems panel (opens under the gems button) ------------------------------ */
+#gemsPanel {
+  position: fixed;
+  top: 62px;
+  left: 12px; /* under the gems button (top-left corner) */
+  width: min(60vw, 420px);
+  max-height: min(55vh, 460px);
+  overflow-y: auto;
+  background: var(--box-bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--glass-shadow);
+  display: none;
+  z-index: 21;
+}
+#gemsPanel.open { display: block; }
+
+.gem-head {
+  padding: 10px 14px 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.gem-locked { padding: 4px 14px 12px; }
+#gemsPanel.unlocked .gem-locked { display: none; }
+
+.gem-note {
+  margin: 6px 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.gem-note.small { font-size: 11px; }
+
+.gem-buy {
+  width: 100%;
+  margin: 10px 0 4px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #10141a;
+  background: linear-gradient(90deg,
+    #ffd166, #7ee081, #7ec8e3, #b48ef7, #ff5964, #ffd166);
+  background-size: 200% 100%;
+  animation: gem-buy-slide 3s linear infinite;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gem-buy:active { transform: scale(0.98); }
+@keyframes gem-buy-slide { to { background-position: 200% 0; } }
+
+.gem-code-row { display: flex; gap: 8px; }
+#gemActivateBtn { position: static; flex-shrink: 0; } /* not fixed — sits beside the input */
+.gem-code-row input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  padding: 0 14px;
+  font-size: 16px; /* clearly readable */
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff; /* beats browser autofill styling */
+  caret-color: #ffffff;
+  background: rgba(16, 20, 26, 0.55);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  outline: none;
+}
+.gem-code-row input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px rgba(16, 20, 26, 0.55) inset; /* keep our bg */
+  -webkit-text-fill-color: #ffffff;
+}
+.gem-code-row input:focus { border-color: rgba(255, 255, 255, 0.4); }
+.gem-code-row .icon-box { width: 42px; height: 42px; font-size: 16px; }
+
+#gemsList { display: none; }
+#gemsPanel.unlocked #gemsList { display: block; }
+
+.gem-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  padding: 8px 14px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.gem-item:hover { background: rgba(255, 255, 255, 0.15); }
+.gem-sub { font-size: 11px; color: var(--muted); }
+
+#gemsStatus {
+  margin: 0;
+  padding: 6px 14px 10px;
+  font-size: 11px;
+  color: var(--muted);
+  min-height: 12px;
+}
+#gemsStatus.error { color: #ff8a8a; }
 
 .search-result {
   display: flex;
@@ -269,8 +434,6 @@ kbd {
   border-bottom-width: 2px;
   border-radius: 6px;
 }
-
-#keyHelpOpen { display: none; } /* legacy — button removed */
 
 /* --- attribution ---------------------------------------------------------------- */
 #attrib {
@@ -409,18 +572,25 @@ kbd {
   }
 }
 
-/* --- narrow screens: two-column layout -----------------------------------------------
-   column 1 (left edge): Sun button
-   column 2 (rest of width): search bar (with Random button at its right) */
+/* --- narrow screens --------------------------------------------------------------
+   column 1 (left edge): gems button
+   column 2 (rest of width): nav bar = Sun + search (flex) + Random */
 @media (max-width: 1100px) {
-  #sunBtn { top: 12px; left: 12px; }
-
   #navBar {
     top: 12px;
     left: 62px;
     right: 12px;
     transform: none;
     width: auto;
+  }
+
+  #gemsPanel {
+    top: 62px; /* under the gems button */
+    left: 62px;
+    right: 12px;
+    transform: none;
+    width: auto;
+    max-height: 48vh;
   }
 
   #bottomCol { bottom: 52px; } /* above the attrib strip */

@@ -1,12 +1,3 @@
-/**
- * Minimal pure-JS PNG decoder (8-bit RGB/RGBA, non-interlaced).
- *
- * Why: browsers on wide-gamut displays (e.g. macOS P3) apply color management
- * during ImageBitmap/canvas decode, which can perturb elevation-encoded RGB
- * by ±1 per channel — and ±1 on the terrarium R channel is ±256 m of
- * elevation, i.e. random giant spikes (see deck.gl issue #10400).
- * Decoding the PNG bytes ourselves bypasses that pipeline entirely.
- */
 export async function decodePNG(bytes) {
   const SIG = [137, 80, 78, 71, 13, 10, 26, 10];
   for (let i = 0; i < 8; i++) {
