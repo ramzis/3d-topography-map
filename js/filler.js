@@ -307,7 +307,10 @@ export class FillerLayer {
       const size = this.farTileSize;
       const geo = new THREE.PlaneGeometry(size, size);
       geo.rotateX(-Math.PI / 2);
-      const mat = new THREE.MeshBasicMaterial(); // unlit: raw satellite colours
+      // lit (not Basic) so the satellite fill darkens with the terrain at
+      // night — Lambert shares the terrain material's 1/π BRDF, so under
+      // the pinned noon sun it still reads like the raw satellite colours
+      const mat = new THREE.MeshLambertMaterial();
       mat.map = new THREE.CanvasTexture(canvas);
       mat.map.colorSpace = THREE.SRGBColorSpace;
       mat.map.anisotropy = 4;
@@ -386,7 +389,10 @@ export class FillerLayer {
 
       const geo = new THREE.PlaneGeometry(CHUNK_WORLD_SIZE, CHUNK_WORLD_SIZE);
       geo.rotateX(-Math.PI / 2);
-      const mat = new THREE.MeshBasicMaterial(); // unlit: raw satellite colours
+      // lit (not Basic) so the satellite fill darkens with the terrain at
+      // night — Lambert shares the terrain material's 1/π BRDF, so under
+      // the pinned noon sun it still reads like the raw satellite colours
+      const mat = new THREE.MeshLambertMaterial();
       mat.map = new THREE.CanvasTexture(canvas);
       mat.map.colorSpace = THREE.SRGBColorSpace;
       mat.map.anisotropy = 8;
