@@ -38,11 +38,62 @@ export function mountGems({ onSelect }) {
     if (open) refresh();
   });
 
+  // free samples shown in the locked view
+  const SAMPLE_GEMS = [
+    { name: 'Paris', lat: 48.8566, lon: 2.3522 },
+    { name: 'Grand Canyon', lat: 36.1069, lon: -112.1129 },
+    { name: 'Santorini Caldera', lat: 36.4026, lon: 25.396 },
+  ];
+  const samplesEl = document.getElementById('gemSamples');
+  for (const g of SAMPLE_GEMS) {
+    const el = document.createElement('button');
+    el.className = 'gem-item';
+    el.innerHTML = `<strong>${escapeHtml(g.name)}</strong>`;
+    el.addEventListener('click', () => {
+      panel.classList.remove('open');
+      onSelect(g);
+    });
+    samplesEl.appendChild(el);
+  }
+
   document.getElementById('gemBuyBtn').addEventListener('click', () => {
     if (STRIPE_PAYMENT_LINK) {
       window.open(STRIPE_PAYMENT_LINK, '_blank', 'noopener');
     } else {
       setStatus('purchases are not set up yet — a Stripe payment link is needed in js/gems.js', true);
+    }
+  });
+
+  // extract a uuid from anywhere in a string (bare code or a full activation url)
+  const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+  const extractUUID = (s) => (s.match(UUID_RE)?.[0] ?? '').toLowerCase();
+
+  // paste button: pull the code straight from the clipboard
+  document.getElementById('gemPasteBtn').addEventListener('click', async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const code = extractUUID(text);
+      if (code) {
+        codeInput.value = code;
+        applyCode(code);
+      } else {
+        setStatus('no activation code found in the clipboard', true);
+      }
+    } catch {
+      setStatus('clipboard access denied — paste into the box instead', true);
+    }
+  });
+
+  // auto-submit: a valid uuid in the box activates by itself, no button press
+  let autoTimer = null;
+  codeInput.addEventListener('input', () => {
+    clearTimeout(autoTimer);
+    const code = extractUUID(codeInput.value);
+    if (code) {
+      autoTimer = setTimeout(() => {
+        codeInput.value = code;
+        applyCode(code);
+      }, 250);
     }
   });
 
@@ -110,8 +161,7 @@ export function mountGems({ onSelect }) {
     for (const g of gems ?? []) {
       const el = document.createElement('button');
       el.className = 'gem-item';
-      el.innerHTML = `<strong>${escapeHtml(g.name)}</strong>` +
-        `<span class="gem-sub">${g.lat.toFixed(4)}, ${g.lon.toFixed(4)}</span>`;
+      el.innerHTML = `<strong>${escapeHtml(g.name)}</strong>`;
       el.addEventListener('click', () => {
         panel.classList.remove('open');
         onSelect({ lat: g.lat, lon: g.lon, name: g.name });

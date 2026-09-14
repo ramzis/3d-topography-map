@@ -90,16 +90,34 @@
 
     <!-- locked: buy + paste the emailed activation code -->
     <div class="gem-locked">
-      <p class="gem-note">Unlock 100 hand-picked wonders of the world —
-        one tap each to teleport there.</p>
-      <button id="gemBuyBtn" class="gem-buy">💎 Buy Location Gems</button>
-      <p class="gem-note small">Already bought? Check your email for the
-        activation link, or paste the code below:</p>
+      <p class="gem-note">Have an activation code?</p>
       <div class="gem-code-row">
-        <input type="text" id="gemCodeInput" placeholder="paste activation code"
+        <input type="text" id="gemCodeInput" placeholder="Paste your activation code"
                autocomplete="off" spellcheck="false" />
+        <button id="gemPasteBtn" class="icon-box" title="Paste from clipboard">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+        </button>
         <button id="gemActivateBtn" class="icon-box">→</button>
       </div>
+
+      <p class="gem-note">Unlock 100 hand-picked wonders of the world —
+        one tap each to teleport there.</p>
+
+      <p class="gem-note">Try a few on us:</p>
+      <div id="gemSamples"></div>
+
+      <button id="gemBuyBtn" class="gem-buy">💎 Buy Location Gems</button>
+
+      <div id="gemBlur">
+        <div class="gem-item blurred" tabindex="-1"><strong>Velvet Sand Dunes</strong></div>
+        <div class="gem-item blurred" tabindex="-1"><strong>Emerald Glow Caves</strong></div>
+        <div class="gem-item blurred" tabindex="-1"><strong>Hidden Marble Canyon</strong></div>
+        <div class="gem-item blurred" tabindex="-1"><strong>Sapphire Ice Fields</strong></div>
+        <div class="gem-item blurred" tabindex="-1"><strong>Forgotten Volcanic Pools</strong></div>
+        <div class="gem-item blurred" tabindex="-1"><strong>Cloudbridge Falls</strong></div>
+      </div>
+      <p class="gem-note">🔒 …and 97 more hand-picked gems.</p>
+
     </div>
 
     <!-- unlocked: the gem list -->

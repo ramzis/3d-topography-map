@@ -17,6 +17,7 @@ html, body {
   background: #10141a;
   font-family: "Average Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--text);
+  font-size: 1rem;
 }
 
 canvas { display: block; touch-action: none; }
@@ -29,7 +30,7 @@ canvas { display: block; touch-action: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 19px;
+  font-size: 1.2em;
   color: var(--text);
   background: var(--box-bg);
   border: 1px solid var(--border);
@@ -52,7 +53,7 @@ canvas { display: block; touch-action: none; }
   gap: 1px;
   width: 42px;
   height: 42px;
-  font-size: 8px;
+  font-size: 0.55em;
   letter-spacing: 0.02em;
 }
 .icon-box.labelled svg { width: 15px; height: 15px; }
@@ -163,7 +164,7 @@ canvas { display: block; touch-action: none; }
   gap: 7px;
   min-height: 42px; /* grows with wrapped text instead of clipping */
   padding: 6px 14px;
-  font-size: 13px;
+  font-size: 0.85em;
   white-space: normal;
   overflow-wrap: anywhere; /* long unbroken tokens (ids) wrap too */
   text-align: left;
@@ -248,7 +249,7 @@ canvas { display: block; touch-action: none; }
 
 .gem-head {
   padding: 10px 14px 6px;
-  font-size: 13px;
+  font-size: 1em;
   font-weight: 600;
   color: var(--text);
 }
@@ -258,17 +259,17 @@ canvas { display: block; touch-action: none; }
 
 .gem-note {
   margin: 6px 0;
-  font-size: 12px;
+  font-size: 0.85em;
   line-height: 1.45;
   color: var(--muted);
 }
-.gem-note.small { font-size: 11px; }
+.gem-note.small { font-size: 0.75em; }
 
 .gem-buy {
   width: 100%;
   margin: 10px 0 4px;
   padding: 10px 16px;
-  font-size: 14px;
+  font-size: 0.95em;
   font-weight: 600;
   color: #10141a;
   background: linear-gradient(90deg,
@@ -284,14 +285,15 @@ canvas { display: block; touch-action: none; }
 @keyframes gem-buy-slide { to { background-position: 200% 0; } }
 
 .gem-code-row { display: flex; gap: 8px; }
-#gemActivateBtn { position: static; flex-shrink: 0; } /* not fixed — sits beside the input */
+#gemActivateBtn, #gemPasteBtn { position: static; flex-shrink: 0; } /* not fixed — they sit beside the input */
 .gem-code-row input {
   flex: 1;
   min-width: 0;
   height: 42px;
   padding: 0 14px;
-  font-size: 16px; /* clearly readable */
+  font-size: 1rem; /* clearly readable */
   color: #ffffff;
+  text-transform: uppercase; /* codes read like license keys */
   -webkit-text-fill-color: #ffffff; /* beats browser autofill styling */
   caret-color: #ffffff;
   background: rgba(16, 20, 26, 0.55);
@@ -316,19 +318,40 @@ canvas { display: block; touch-action: none; }
   width: 100%;
   padding: 8px 14px;
   text-align: left;
-  font-size: 13px;
+  font-size: 0.9em;
   color: var(--text);
   background: transparent;
   border: none;
   cursor: pointer;
 }
 .gem-item:hover { background: rgba(255, 255, 255, 0.15); }
-.gem-sub { font-size: 11px; color: var(--muted); }
+.gem-sub { font-size: 0.75em; color: var(--muted); }
+
+.gem-item.blurred {
+  filter: blur(4px);
+  user-select: none;
+  pointer-events: none;
+  opacity: 0.75;
+  cursor: default;
+}
+
+#gemBlur {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.5));
+          mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.5));
+}
+
+/* the "97 more" note must stay clearly readable below the fade */
+#gemBlur + .gem-note {
+  margin-top: 2px;
+  color: var(--text);
+  font-weight: 600;
+}
 
 #gemsStatus {
   margin: 0;
   padding: 6px 14px 10px;
-  font-size: 11px;
+  font-size: 0.75em;
   color: var(--muted);
   min-height: 12px;
 }
@@ -341,15 +364,15 @@ canvas { display: block; touch-action: none; }
   width: 100%;
   padding: 8px 12px;
   text-align: left;
-  font-size: 13px;
+  font-size: 0.9em;
   color: var(--text);
   background: transparent;
   border: none;
   cursor: pointer;
 }
 .search-result:hover { background: rgba(255, 255, 255, 0.15); }
-.search-sub { font-size: 11px; color: var(--muted); }
-.search-status { padding: 8px 12px; font-size: 12px; color: var(--muted); }
+.search-sub { font-size: 0.75em; color: var(--muted); }
+.search-status { padding: 8px 12px; font-size: 0.8em; color: var(--muted); }
 
 #diceBtn, #shareBtn { position: static; flex-shrink: 0; }
 #diceBtn.rolling {
@@ -374,7 +397,7 @@ canvas { display: block; touch-action: none; }
 #exagBar label {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 0.8em;
   color: var(--text);
   margin-bottom: 4px;
 }
@@ -383,7 +406,7 @@ canvas { display: block; touch-action: none; }
 
 .hint {
   margin: 8px 0 0;
-  font-size: 11px;
+  font-size: 0.75em;
   color: var(--muted);
   line-height: 1.5;
 }
@@ -414,7 +437,7 @@ canvas { display: block; touch-action: none; }
 .key-group { display: flex; flex-direction: column; gap: 4px; }
 
 .key-desc {
-  font-size: 10px;
+  font-size: 0.7em;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
@@ -426,7 +449,7 @@ kbd {
   min-width: 26px;
   padding: 4px 7px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
+  font-size: 0.75em;
   color: var(--text);
   text-align: center;
   background: rgba(255, 255, 255, 0.15);
@@ -440,7 +463,7 @@ kbd {
   position: fixed;
   bottom: 8px;
   right: 12px;
-  font-size: 10px;
+  font-size: 0.7em;
   color: var(--muted);
   background: var(--box-bg);
   padding: 4px 10px;
@@ -468,7 +491,7 @@ kbd {
 }
 #teleportOverlay.fade-out { opacity: 0; }
 
-.teleport-card { text-align: center; color: var(--text); font-size: 15px; }
+.teleport-card { text-align: center; color: var(--text); font-size: 1em; }
 
 .teleport-plane-track {
   position: relative;
@@ -519,7 +542,7 @@ kbd {
   -webkit-backdrop-filter: blur(8px);
   box-shadow: var(--glass-shadow);
   z-index: 40;
-  font-size: 13px;
+  font-size: 0.9em;
   line-height: 1.4;
 }
 
@@ -541,7 +564,7 @@ kbd {
 
 .cookie-btn {
   padding: 8px 14px;
-  font-size: 13px;
+  font-size: 0.9em;
   border-radius: 999px;
   cursor: pointer;
   color: var(--text);
@@ -563,7 +586,7 @@ kbd {
     width: 100%;
     max-width: none;
     border-radius: 0;
-    font-size: 9px;
+    font-size: 0.65em;
     line-height: 1.5;
     padding: 4px 10px 6px;
     text-align: center;
@@ -603,7 +626,7 @@ kbd {
     width: 100%;
     max-width: none;
     border-radius: 0;
-    font-size: 8px;
+    font-size: 0.6em;
     line-height: 1.5;
     padding: 4px 10px 6px;
     text-align: center;
