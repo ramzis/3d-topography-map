@@ -5,6 +5,17 @@ import { worldToMerc, mercXToLon, mercYToLat, lonToMercX, latToMercY, mercToWorl
 const QUERY_COOLDOWN_MS = 6000;
 const MOVE_THRESHOLD = 0.4; // re-query after moving 40% of the query radius
 
+// Overpass public instances — on failure we rotate to the next mirror, and
+// back off exponentially so a refused/unreachable endpoint doesn't get
+// hammered every cooldown (each refused request logs a browser console
+// error, which is what made the noise)
+const MIRRORS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+];
+const FAIL_BACKOFF_MS = [30_000, 60_000, 120_000, 300_000]; // after 1st..4th+ consecutive failure
+
 const HEIGHT = { city: 7, town: 5, village: 3.5 };
 const CLEARANCE = { city: 5, town: 3.5, village: 2.5 };
 
@@ -16,10 +27,13 @@ export class PlacesLayer {
     this.lastCenter = null;
     this.lastRadius = 0;
     this.inFlight = false;
+    this.mirror = 0;        // index into MIRRORS — rotates on failure
+    this.fails = 0;         // consecutive failures (drives the backoff)
+    this.retryAt = 0;       // animation-timestamp gate: no queries before this
   }
 
   update(camera, target, tNow) {
-    if (this.inFlight || tNow - this.lastQueryAt < QUERY_COOLDOWN_MS) return;
+    if (this.inFlight || tNow < this.retryAt || tNow - this.lastQueryAt < QUERY_COOLDOWN_MS) return;
     const radius = Math.max(10, Math.min(120, camera.position.distanceTo(target) * 1.4));
     if (this.lastCenter && target.distanceTo(this.lastCenter) < this.lastRadius * MOVE_THRESHOLD) {
       return;
@@ -41,7 +55,7 @@ export class PlacesLayer {
       `out body 400;`;
 
     this.inFlight = true;
-    fetch('https://overpass-api.de/api/interpreter', {
+    fetch(MIRRORS[this.mirror], {
       method: 'POST',
       body: 'data=' + encodeURIComponent(query),
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -50,8 +64,19 @@ export class PlacesLayer {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
-      .then((json) => this.addPlaces(json.elements || []))
-      .catch(() => { /* transient Overpass issues — next movement retries */ })
+      .then((json) => {
+        this.fails = 0;
+        this.retryAt = 0;
+        this.addPlaces(json.elements || []);
+      })
+      .catch(() => {
+        // transient or dead endpoint — rotate to the next mirror and back
+        // off, so a refused connection isn't retried every cooldown
+        this.fails++;
+        this.mirror = (this.mirror + 1) % MIRRORS.length;
+        const backoff = FAIL_BACKOFF_MS[Math.min(this.fails, FAIL_BACKOFF_MS.length) - 1];
+        this.retryAt = tNow + backoff;
+      })
       .finally(() => { this.inFlight = false; });
   }
 

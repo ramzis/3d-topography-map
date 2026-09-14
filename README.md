@@ -106,7 +106,8 @@ js/app.js          scene, UI wiring, render loop
 
 ## Limitations
 
-- A very zoomed-out view is capped at 60 chunks and thus incomplete.
+- Terrain (3D meshes) is hard-capped at 120 chunks; when zoomed out far
+  the view is carried by the uncapped satellite fill instead.
 - Terrain elevation uses a fixed zoom level (z13).
 - Ward boundary segments crossing chunk borders take their heights from the
   chunk of their midpoint (tiny kinks possible at borders).

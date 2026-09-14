@@ -33,7 +33,7 @@ const { tileSpanMeters, MERC_NORTH, worldToMerc, worldToChunk } = await import('
 
 // constants mirrored from filler.js (kept in sync deliberately)
 const MIN_RADIUS = 2600, MAX_RADIUS = 9000, Z13_RADIUS = 1500;
-const FAR_MAX_TILES = 550, MAX_TILES = 900;
+const MAX_TILES = 900; // near-ring budget (the far ring is uncapped by design)
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const target = new THREE.Vector3(0, 0, 0);
@@ -110,30 +110,32 @@ function checkScenario(fill, manager, camera, label) {
   ok(fill.farZoom === fill._pickFarZoom(b.R),
     `${label}: farZoom ${fill.farZoom} != expected ${fill._pickFarZoom(b.R)} for R=${b.R}`);
 
-  // 2. resource budgets
-  ok(fill.farTiles.size <= FAR_MAX_TILES, `${label}: far tiles ${fill.farTiles.size} > ${FAR_MAX_TILES}`);
+  // 2. resource budgets (near ring only — the far ring is uncapped by
+  //    design: it must always fill the cone)
   ok(fill.tiles.size <= MAX_TILES, `${label}: near tiles ${fill.tiles.size} > ${MAX_TILES}`);
 
-  // 3. every far tile is INSIDE the cone bbox (+1 tile margin) and at the
-  //    current zoom — no random tiles loaded far away
+  // 3. every far tile is near the cone bbox (within the loader's ±1-cell
+  //    drop margin plus floor alignment — fogged, invisible offscreen cache)
+  //    and at the current zoom — no tiles at nonsense far-away coordinates
   const fs = fill.farTileSize;
   for (const [key, ft] of fill.farTiles) {
     const [tx, ty] = key.split(',').map(Number);
     const fb = fill._farBounds(tx, ty);
     const cxw = (fb[0] + fb[1]) / 2, czw = (fb[2] + fb[3]) / 2;
-    ok(cxw >= b.minX - fs && cxw <= b.maxX + fs && czw >= b.minZ - fs && czw <= b.maxZ + fs,
+    ok(cxw >= b.minX - 2 * fs && cxw <= b.maxX + 2 * fs && czw >= b.minZ - 2 * fs && czw <= b.maxZ + 2 * fs,
       `${label}: far tile ${key} at (${cxw.toFixed(0)},${czw.toFixed(0)}) outside cone bbox`);
     ok(Math.abs(ft.mesh.geometry.parameters.width - fs) < 1e-6,
       `${label}: far tile ${key} geometry width != farTileSize (stale zoom?)`);
   }
 
-  // 4. every near tile is inside the near-ring bbox (+1 chunk)
+  // 4. every near tile is near the near-ring bbox (within the loader's
+  //    ±1-cell drop margin plus floor alignment — offscreen cache)
   for (const key of fill.tiles.keys()) {
     const [tx, ty] = key.split(',').map(Number);
     const tb = fill.tileBounds(tx, ty);
     const cxw = (tb[0] + tb[1]) / 2, czw = (tb[2] + tb[3]) / 2;
-    ok(cxw >= b.nMinX - CHUNK_WORLD_SIZE && cxw <= b.nMaxX + CHUNK_WORLD_SIZE &&
-       czw >= b.nMinZ - CHUNK_WORLD_SIZE && czw <= b.nMaxZ + CHUNK_WORLD_SIZE,
+    ok(cxw >= b.nMinX - 2 * CHUNK_WORLD_SIZE && cxw <= b.nMaxX + 2 * CHUNK_WORLD_SIZE &&
+       czw >= b.nMinZ - 2 * CHUNK_WORLD_SIZE && czw <= b.nMaxZ + 2 * CHUNK_WORLD_SIZE,
       `${label}: near tile ${key} at (${cxw.toFixed(0)},${czw.toFixed(0)}) outside near bbox`);
   }
 
@@ -182,6 +184,33 @@ function checkScenario(fill, manager, camera, label) {
   }
   ok(fill.fogFar >= maxDist - 0.5,
     `${label}: fogFar ${fill.fogFar?.toFixed(0)} hides loaded fill (max tile corner at ${maxDist.toFixed(0)})`);
+
+  // 8. BUILT GEOMETRY sits exactly on its tile footprint — the logical
+  //    tile set can be perfect while the meshes are placed at nonsense
+  //    coordinates (a past bug read _farBounds' [west, east] pair as the
+  //    [centerX, centerZ], scattering far tiles as random lines far away)
+  for (const [key, ft] of fill.farTiles) {
+    const [tx, ty] = key.split(',').map(Number);
+    const fb = fill._farBounds(tx, ty); // [x0, x1, z0, z1]
+    const p = ft.mesh.position;
+    const w = ft.mesh.geometry.parameters.width;
+    ok(Number.isFinite(p.x) && Number.isFinite(p.z), `${label}: far mesh ${key} at non-finite position`);
+    ok(Math.abs(p.x - (fb[0] + fb[1]) / 2) < 1e-3 && Math.abs(p.z - (fb[2] + fb[3]) / 2) < 1e-3,
+      `${label}: far mesh ${key} at (${p.x.toFixed(1)},${p.z.toFixed(1)}) != footprint center (${((fb[0] + fb[1]) / 2).toFixed(1)},${((fb[2] + fb[3]) / 2).toFixed(1)})`);
+    ok(Math.abs(p.x - w / 2 - fb[0]) < 1e-3 && Math.abs(p.x + w / 2 - fb[1]) < 1e-3,
+      `${label}: far mesh ${key} x-extent [${(p.x - w / 2).toFixed(1)},${(p.x + w / 2).toFixed(1)}] != [${fb[0].toFixed(1)},${fb[1].toFixed(1)}]`);
+    ok(Math.abs(p.z - w / 2 - fb[2]) < 1e-3 && Math.abs(p.z + w / 2 - fb[3]) < 1e-3,
+      `${label}: far mesh ${key} z-extent [${(p.z - w / 2).toFixed(1)},${(p.z + w / 2).toFixed(1)}] != [${fb[2].toFixed(1)},${fb[3].toFixed(1)}]`);
+    ok(Math.abs(p.y - fill._farY) < 1e-6, `${label}: far mesh ${key} y=${p.y} != far plane ${fill._farY}`);
+  }
+  // near meshes on their z13 footprints too
+  for (const [key, t] of fill.tiles) {
+    const [tx, ty] = key.split(',').map(Number);
+    const tb = fill.tileBounds(tx, ty);
+    const p = t.mesh.position;
+    ok(Math.abs(p.x - (tb[0] + tb[1]) / 2) < 1e-3 && Math.abs(p.z - (tb[2] + tb[3]) / 2) < 1e-3,
+      `${label}: near mesh ${key} at (${p.x.toFixed(1)},${p.z.toFixed(1)}) != footprint center`);
+  }
 
   if (errs.length) { errs.forEach((e) => console.error('  ✘ ' + e)); throw new Error(errs.join('; ')); }
 
@@ -297,6 +326,20 @@ test('altitude change switches far zoom and reloads contiguously (56 km → 15 k
   await stabilize(fill, camera);
   assert.equal(fill.farZoom, 7, 'farZoom after climbing to 90 km');
   rows.push(checkScenario(fill, manager, camera, 'after 15 km → 90 km climb'));
+});
+
+test('looking around at 56 km: geometry stays on footprints, no strays in any direction', async () => {
+  const manager = makeManager();
+  const fill = new FillerLayer(new THREE.Scene(), manager);
+  const yaws = [
+    ['N', [0, 0, -100]], ['NE', [70, 0, -70]], ['E', [100, 0, 0]], ['SE', [70, 0, 70]],
+    ['S', [0, 0, 100]], ['SW', [-70, 0, 70]], ['W', [-100, 0, 0]], ['NW', [-70, 0, -70]],
+  ];
+  for (const [name, look] of yaws) {
+    const camera = makeCamera(560, new THREE.Vector3(...look));
+    await stabilize(fill, camera);
+    rows.push(checkScenario(fill, manager, camera, `look ${name} @56km`));
+  }
 });
 
 // ---- run ----------------------------------------------------------------------

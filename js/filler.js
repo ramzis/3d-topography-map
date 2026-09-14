@@ -14,8 +14,7 @@ const Z13_RADIUS = 1500;     // near ring: full-detail z13 tiles around the targ
 const FAR_Y_DROP = 1.5;       // far ring sits below the near ring (no z-fighting)
 const TILES_IN_FLIGHT = 24;
 const MAX_TILES = 900;
-const FAR_TILES_IN_FLIGHT = 16;
-const FAR_MAX_TILES = 550;
+const FAR_TILES_IN_FLIGHT = 16; // concurrency only — the far ring itself is uncapped
 const WALL_SEGMENTS = 8;
 const REBUILD_TOL = 0.05;
 
@@ -247,7 +246,9 @@ export class FillerLayer {
         const key = `${tx},${ty}`;
         if (this.farTiles.has(key) || this.pendingFar.has(key)) continue;
         if (nearCovered(tx, ty)) continue;
-        if (this.farTiles.size + this.pendingFar.size + farWanted.length >= FAR_MAX_TILES) continue;
+        // no total cap: the far ring must always fill the cone — when
+        // zoomed out far this satellite fill IS the visible world (terrain
+        // is hard-capped at 120 chunks)
         farWanted.push([tx, ty, Math.abs(tx - (ftx0 + ftx1) / 2) + Math.abs(ty - (fty0 + fty1) / 2)]);
       }
     }
@@ -299,10 +300,11 @@ export class FillerLayer {
       canvas.getContext('2d').drawImage(bmp, 0, 0);
       bmp.close();
 
-      const [wx, wz] = this._farBounds(tx, ty).slice(0, 2);
+      // _farBounds returns the tile's world rect [x0, x1, z0, z1] — take
+      // the mesh position from its center (a past bug sliced [x0, x1] as
+      // "centerX, centerZ", placing meshes at nonsense z — random lines)
+      const [x0, x1, z0, z1] = this._farBounds(tx, ty);
       const size = this.farTileSize;
-      const [x0, x1] = [wx - size / 2, wx + size / 2];
-      const [z0, z1] = [wz - size / 2, wz + size / 2];
       const geo = new THREE.PlaneGeometry(size, size);
       geo.rotateX(-Math.PI / 2);
       const mat = new THREE.MeshBasicMaterial(); // unlit: raw satellite colours

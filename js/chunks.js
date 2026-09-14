@@ -256,7 +256,7 @@ const sharedMats = {
   terrainColor: new THREE.Color(0xb8a47e),
 };
 
-const MAX_CHUNKS_MAX = 400; // absolute terrain ceiling (altitude-scaled below)
+const MAX_CHUNKS = 120; // hard cap so a zoom-out cannot queue thousands of tiles
 const SKIRT_DEPTH = 1.5; // scene units (1 unit = 100 m) — covers inter-chunk height mismatch
 const DISPATCH_LIMIT = 10; // loads in flight; the rest wait and re-sort as you look around
 
@@ -320,8 +320,10 @@ export class ChunkManager {
     for (let ty = cy0; ty <= cy1; ty++)
       for (let tx = cx0; tx <= cx1; tx++) keys.push(`${tx},${ty}`);
     // when capping, keep what's ahead of the camera first, then near.
-    // the budget grows with altitude: more terrain when flying high
-    const cap = Math.round(Math.min(MAX_CHUNKS_MAX, 120 + camera.position.y * 0.5));
+    // terrain is hard-capped at 120 chunks — when zoomed out far, terrain
+    // detail doesn't matter; the satellite fill (filler.js, uncapped far
+    // ring) is what keeps covering the view
+    const cap = MAX_CHUNKS;
     if (keys.length > cap) {
       keys.sort((a, b) => this._viewPriority(a, camera) - this._viewPriority(b, camera));
       keys.length = cap;
