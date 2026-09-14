@@ -256,7 +256,7 @@ const sharedMats = {
   terrainColor: new THREE.Color(0xb8a47e),
 };
 
-const MAX_CHUNKS = 120; // hard cap so a zoom-out cannot queue thousands of tiles
+const MAX_CHUNKS_MAX = 400; // absolute terrain ceiling (altitude-scaled below)
 const SKIRT_DEPTH = 1.5; // scene units (1 unit = 100 m) — covers inter-chunk height mismatch
 const DISPATCH_LIMIT = 10; // loads in flight; the rest wait and re-sort as you look around
 
@@ -283,43 +283,34 @@ export class ChunkManager {
   }
 
   _wantedChunks(camera, target) {
-    // raycast screen corners onto the y=0 plane to get the visible ground bbox
-    const corners = [
-      new THREE.Vector2(-1, 1), new THREE.Vector2(1, 1),
-      new THREE.Vector2(-1, -1), new THREE.Vector2(1, -1),
-    ];
-    const ray = new THREE.Raycaster();
+    // HOW FAR we load is altitude-driven; WHERE is camera position + view
+    // yaw. Pitch never changes the set — looking up/down loads/unloads
+    // nothing, looking around shifts the cone, moving shifts the circle.
     const MAX_GROUND_RADIUS = 500; // scene units — don't chase the horizon
-    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-    for (const corner of corners) {
-      ray.setFromCamera(corner, camera);
-      let t = -ray.ray.origin.y / ray.ray.direction.y;
-      if (t > 0) {
-        t = Math.min(t, 3000); // avoid near-horizontal ray explosions
-        const p = ray.ray.origin.clone().addScaledVector(ray.ray.direction, t);
-        // clamp to a disc around the orbit target
-        p.x = Math.max(target.x - MAX_GROUND_RADIUS, Math.min(target.x + MAX_GROUND_RADIUS, p.x));
-        p.z = Math.max(target.z - MAX_GROUND_RADIUS, Math.min(target.z + MAX_GROUND_RADIUS, p.z));
-        minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
-        minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z);
-      }
-    }
-    // look-ahead: extend the loaded ground to ~2x what is visible ahead of the
-    // camera (scaled by the horizontal forward components, so diagonal looks
-    // extend diagonally; looking straight down adds nothing)
-    const fwd = new THREE.Vector3();
-    camera.getWorldDirection(fwd);
-    const gx = camera.position.x, gz = camera.position.z;
-    if (fwd.x > 0) maxX += Math.max(0, maxX - gx) * 2 * fwd.x;
-    else if (fwd.x < 0) minX -= Math.max(0, gx - minX) * -2 * fwd.x;
-    if (fwd.z > 0) maxZ += Math.max(0, maxZ - gz) * 2 * fwd.z;
-    else if (fwd.z < 0) minZ -= Math.max(0, gz - minZ) * -2 * fwd.z;
+    const R = Math.max(120, Math.min(MAX_GROUND_RADIUS, 50 + camera.position.y));
 
-    // include the orbit target and pad generously
-    minX = Math.min(minX, target.x) - CHUNK_WORLD_SIZE;
-    maxX = Math.max(maxX, target.x) + CHUNK_WORLD_SIZE;
-    minZ = Math.min(minZ, target.z) - CHUNK_WORLD_SIZE;
-    maxZ = Math.max(maxZ, target.z) + CHUNK_WORLD_SIZE;
+    // horizontal view direction only (yaw): project forward onto the xz plane
+    const fwd = this._fwd || (this._fwd = new THREE.Vector3());
+    camera.getWorldDirection(fwd);
+    let fx = fwd.x, fz = fwd.z;
+    const fl = Math.hypot(fx, fz);
+    if (fl > 1e-4) { fx /= fl; fz /= fl; } else { fx = 0; fz = 0; }
+
+    // cone: a circle offset toward the yaw — roughly R behind the camera,
+    // roughly 2R ahead (looking straight down gives a plain circle)
+    const off = 0.5 * R;
+    const r = 1.5 * R;
+    const gx = camera.position.x + fx * off;
+    const gz = camera.position.z + fz * off;
+    let minX = gx - r, maxX = gx + r;
+    let minZ = gz - r, maxZ = gz + r;
+
+    // include the orbit target and pad generously (2 tiles so screen
+    // edges never sit on the load boundary)
+    minX = Math.min(minX, target.x) - 2 * CHUNK_WORLD_SIZE;
+    maxX = Math.max(maxX, target.x) + 2 * CHUNK_WORLD_SIZE;
+    minZ = Math.min(minZ, target.z) - 2 * CHUNK_WORLD_SIZE;
+    maxZ = Math.max(maxZ, target.z) + 2 * CHUNK_WORLD_SIZE;
 
     const [cxa, cya] = worldToChunk(minX, minZ); // north-west (higher tile-y)
     const [cxb, cyb] = worldToChunk(maxX, maxZ); // south-east (lower tile-y)
@@ -328,10 +319,12 @@ export class ChunkManager {
     const keys = [];
     for (let ty = cy0; ty <= cy1; ty++)
       for (let tx = cx0; tx <= cx1; tx++) keys.push(`${tx},${ty}`);
-    // when capping, keep what's ahead of the camera first, then near
-    if (keys.length > MAX_CHUNKS) {
+    // when capping, keep what's ahead of the camera first, then near.
+    // the budget grows with altitude: more terrain when flying high
+    const cap = Math.round(Math.min(MAX_CHUNKS_MAX, 120 + camera.position.y * 0.5));
+    if (keys.length > cap) {
       keys.sort((a, b) => this._viewPriority(a, camera) - this._viewPriority(b, camera));
-      keys.length = MAX_CHUNKS;
+      keys.length = cap;
     }
     return keys;
   }
@@ -352,7 +345,9 @@ export class ChunkManager {
     const fwd = this._fwd || (this._fwd = new THREE.Vector3());
     camera.getWorldDirection(fwd);
     const alignment = (dx * fwd.x + dz * fwd.z) / dist; // 1 ahead … -1 behind
-    return dist * (1.5 - alignment);
+    // near-first with a moderate view-cone bonus: a near chunk to the side
+    // loads before a distant one straight ahead (0.8x ahead … 1.7x behind)
+    return dist * (1.25 - 0.45 * alignment);
   }
 
   update(camera, target) {

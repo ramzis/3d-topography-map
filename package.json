@@ -4,7 +4,8 @@
   "description": "Interactive 3D topography map — streaming terrain, satellite imagery, and place names (Three.js)",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/serve.mjs"
+    "dev": "node scripts/serve.mjs",
+    "test": "node tests/filler.test.mjs"
   },
   "dependencies": {
     "three": "^0.169.0"

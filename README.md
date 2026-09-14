@@ -12,6 +12,13 @@ npm install
 npm run dev   # → http://localhost:8080 (requires internet)
 ```
 
+Headless tests for the streaming view loader (no browser, no network —
+browser APIs are stubbed):
+
+```bash
+npm test
+```
+
 Tiles are cached in memory (30 min) and by the browser HTTP cache, so
 revisited areas appear instantly.
 

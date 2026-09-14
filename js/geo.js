@@ -57,7 +57,7 @@ export function worldToChunk(wx, wz) {
 const TILE_TTL = 1000 * 60 * 30; // memory cache 30 min
 const decodedCache = new Map(); // "kind:z/x/y" -> { promise, ts }
 let activeFetches = 0;
-const MAX_CONCURRENCY = 6;
+const MAX_CONCURRENCY = 10;
 const waitQueue = [];
 
 function acquire() {

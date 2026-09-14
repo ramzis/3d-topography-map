@@ -290,8 +290,21 @@ renderer.setAnimationLoop((t) => {
   }
   sky.update(camera, controls.target);
   scene.fog.color.copy(sky.fogColor);
+  // fog ends where the satellite fill ends (so the fill is never fog-hidden,
+  // and there is never unfilled visible ground beyond it) — filler.fogFar is
+  // the camera-to-far-edge distance of the actual fill cone
+  const fogFar = Math.max(2600, filler.fogFar ?? filler.currentRadius ?? 2600);
+  scene.fog.near = fogFar * 0.35;
+  scene.fog.far = fogFar;
+  // grow the far clip plane if the stretched view needs it (never shrinks)
+  const neededFar = fogFar + 600;
+  if (camera.far < neededFar) {
+    camera.far = neededFar;
+    camera.updateProjectionMatrix();
+  }
   saveState(t);
   updateLocationStatus(t);
+
   places.updatePositions((wx, wz) => manager.groundWorldY(wx, wz));
   updateLabelFade();
   renderer.render(scene, camera);
