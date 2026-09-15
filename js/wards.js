@@ -90,7 +90,8 @@ export class WardOverlay {
       const sprite = makeLabel(ward.name, this.labelColor, 7);
       sprite.position.set(wx, 0, wz);
       sprite.userData.ward = {
-        chunk,
+        // NB: no `chunk` ref — chunks churn as you fly, and the label would
+        // pin each retired chunk (256 KB elevation grid) in the heap forever
         elev: chunk.sampleElev(...chunk.worldToUV(wx, wz)),
         clearance: 6.5,
       };

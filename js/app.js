@@ -365,10 +365,14 @@ renderer.setAnimationLoop((t) => {
     const mem = performance.memory
       ? ` · jsHeap ${(performance.memory.usedJSHeapSize / 1048576).toFixed(0)}MB`
       : '';
+    const msg = `tiles ${cs.size}/${cs.max} · places ${places.places.size} · chunks ${manager.chunks.size}${mem}`;
+    // console too: when the phone is tethered (Safari Web Inspector /
+    // chrome://inspect) this is the only way to watch the trajectory live
+    console.info(`[mem] ${msg}`);
     window.Sentry?.addBreadcrumb({
       category: 'memory',
       level: 'info',
-      message: `tiles ${cs.size}/${cs.max} · places ${places.places.size} · chunks ${manager.chunks.size}${mem}`,
+      message: msg,
     });
   }
 

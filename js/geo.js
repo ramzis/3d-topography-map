@@ -58,8 +58,11 @@ const TILE_TTL = 1000 * 60 * 30; // memory cache 30 min
 // LRU cap: without it this cache grows unboundedly while flying and
 // eventually OOM-kills the renderer (tab silently reloads). The cap sits
 // above the live working set (900 near tiles + terrain chunks) so it only
-// evicts the stale tail of places you've flown away from.
-const CACHE_MAX_ENTRIES = 1400; // ~370 MB of decoded tiles/grids
+// evicts the stale tail of places you've flown away from. Mobile gets a
+// much smaller budget — phone browsers kill the tab far below the ~370 MB
+// the desktop cap represents (canvas backing stores count hard on iOS).
+const IS_TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+const CACHE_MAX_ENTRIES = IS_TOUCH ? 400 : 1400; // mobile ~100 MB · desktop ~370 MB of decoded tiles/grids
 const decodedCache = new Map(); // "kind:z/x/y" -> { promise, ts }
 
 export function cacheStats() {

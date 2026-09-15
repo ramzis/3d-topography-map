@@ -236,7 +236,11 @@ class Chunk {
   }
 
   dispose() {
+    // dispose BOTH texture tiers — after a z16 upgrade imageryTex and
+    // baseTex are distinct, and leaking the base GPU texture on every
+    // chunk churn was OOM-killing mobile GPUs
     if (this.imageryTex) this.imageryTex.dispose();
+    if (this.baseTex && this.baseTex !== this.imageryTex) this.baseTex.dispose();
     if (this.terrain) {
       this.terrain.geometry.dispose();
       this.material.dispose();
@@ -257,6 +261,11 @@ const sharedMats = {
 };
 
 const MAX_CHUNKS = 120; // hard cap so a zoom-out cannot queue thousands of tiles
+// z16 imagery is a 2048×2048 canvas (16 MB RGBA) per chunk — doubled by the
+// GPU upload and parked in the decoded cache. Phones can't afford 3 of
+// those on top of everything else, so touch caps the LOD at z15 (512²).
+const IS_TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+const MAX_IMAGERY_ZOOM = IS_TOUCH ? 15 : 16;
 const SKIRT_DEPTH = 1.5; // scene units (1 unit = 100 m) — covers inter-chunk height mismatch
 const DISPATCH_LIMIT = 10; // loads in flight; the rest wait and re-sort as you look around
 
@@ -392,7 +401,7 @@ export class ChunkManager {
     let atZ16 = 0;
     for (const c of ready) {
       const d = cam.distanceTo(c.group.position);
-      let target = d < 25 ? 16 : d < 120 ? 15 : 13;
+      let target = d < 25 ? MAX_IMAGERY_ZOOM : d < 120 ? 15 : 13;
       if (target === 16) {
         if (atZ16 >= 3) target = 15;
         else atZ16++;
