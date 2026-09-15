@@ -21,8 +21,13 @@ const DEFAULT_EXAGGERATION = 6;
 const ALWAYS_NOON_DEFAULT = true; // sun toggle starts on — always daytime
 
 // --- renderer / scene -----------------------------------------------------------
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+// touch detection must precede the renderer: mobile gets a cheaper pipeline
+const isTouch = matchMedia('(pointer: coarse)').matches;
+const renderer = new THREE.WebGLRenderer({ antialias: !isTouch });
+// 1.5 on touch: a 3x phone screen at full ratio costs ~4x the fill rate for
+// little visible gain on moving terrain — this is the single biggest
+// mobile render-cost saving
+renderer.setPixelRatio(Math.min(devicePixelRatio, isTouch ? 1.5 : 2));
 // the classic mobile "silent" death: the GPU driver drops the WebGL
 // context (no JS error) and the page freezes — report it so we know
 renderer.domElement.addEventListener('webglcontextlost', (e) => {
@@ -106,7 +111,6 @@ $('exaggeration').addEventListener('input', (e) => {
 // touch devices keep the OrbitControls gestures:
 // one finger — orbit, pinch — zoom, two fingers — pan
 
-const isTouch = matchMedia('(pointer: coarse)').matches;
 const fly = new FlyRig(camera, renderer.domElement, {
   getGroundY: (wx, wz) => manager.groundWorldY(wx, wz),
 });

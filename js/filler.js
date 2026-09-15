@@ -5,15 +5,18 @@ import {
 } from './geo.js';
 import { CHUNK_WORLD_SIZE } from './chunks.js';
 
+// touch/mobile tuning (guarded for headless tests, where matchMedia is absent)
+const IS_TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+
 const FILLER_MARGIN = 0.3;    // how far below the sampled edge heights the plane sits
 const MIN_RADIUS = 2600;     // at low altitude
 const MAX_RADIUS = 9000;     // when flying very high
-const Z13_RADIUS = 1500;     // near ring: full-detail z13 tiles around the target
+const Z13_RADIUS = IS_TOUCH ? 1000 : 1500; // near ring: full-detail z13 tiles around the target
 // far ring zoom adapts to altitude (see _pickFarZoom) so the tile count
 // stays ~a few hundred no matter how far out we fill
 const FAR_Y_DROP = 1.5;       // far ring sits below the near ring (no z-fighting)
 const TILES_IN_FLIGHT = 24;
-const MAX_TILES = 900;
+const MAX_TILES = IS_TOUCH ? 500 : 900; // near-ring budget — smaller disc on mobile (bandwidth + RAM)
 const FAR_TILES_IN_FLIGHT = 16; // concurrency only — the far ring itself is uncapped
 const WALL_SEGMENTS = 8;
 const REBUILD_TOL = 0.05;
@@ -108,10 +111,11 @@ export class FillerLayer {
       }
     }
     wanted.sort((a, b) => a[2] - b[2]);
-    for (const [tx, ty] of wanted) {
-      if (this.pending.size >= TILES_IN_FLIGHT) break;
-      this._loadTile(tx, ty);
-    }
+    // dispatched AFTER the far ring (below): ~25 coarse tiles paint the
+    // whole screen first, then z13 detail streams in behind them — on a
+    // slow mobile connection this is the difference between a filled view
+    // in ~2 seconds vs. a half-empty one for a minute
+    this._nearWanted = wanted;
 
     // ---- far ring: covers the cone out to R (zoom adapts to altitude) -------
     const wantedZoom = this._pickFarZoom(R);
@@ -257,6 +261,12 @@ export class FillerLayer {
       if (this.pendingFar.size >= FAR_TILES_IN_FLIGHT) break;
       this._loadFarTile(tx, ty);
     }
+
+    // near-ring detail — after the coarse screen fill (see above)
+    for (const [tx, ty] of this._nearWanted || []) {
+      if (this.pending.size >= TILES_IN_FLIGHT) break;
+      this._loadTile(tx, ty);
+    }
   }
 
   /** world size of a far tile at the given zoom (z13 = 1x) */
@@ -395,7 +405,7 @@ export class FillerLayer {
       const mat = new THREE.MeshLambertMaterial();
       mat.map = new THREE.CanvasTexture(canvas);
       mat.map.colorSpace = THREE.SRGBColorSpace;
-      mat.map.anisotropy = 8;
+      mat.map.anisotropy = IS_TOUCH ? 4 : 8;
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set((x0 + x1) / 2, planeY, (z0 + z1) / 2);
       this.group.add(mesh);
