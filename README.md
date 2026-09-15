@@ -96,6 +96,7 @@ js/png-decoder.js  pure-JS PNG decoder for elevation tiles
 js/chunks.js       Chunk + ChunkManager (viewport-driven load/dispose, imagery LOD)
 js/wards.js        ward boundaries + centroid labels
 js/places.js       streaming place names (Overpass)
+js/landing.js      first-visit landing showcase (10 places, teleports)
 js/search.js       place search UI (Nominatim geocoding)
 js/teleport.js     teleport + "Flying" overlay + arrival detection
 js/fly.js          WASD + pointer-lock spectator fly camera

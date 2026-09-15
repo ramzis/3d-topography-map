@@ -32,6 +32,7 @@
   <meta name="twitter:image" content="https://ramzis.github.io/3d-topography-map/og-image.png" />
 
   <!-- PWA-ish extras -->
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="3D Topo Map" />
@@ -59,27 +60,22 @@
   }
   </script>
 
-  <!-- Sentry: error monitoring + tracing + session replay (Loader Script —
-       the project DSN is baked into the loader URL). Configured BEFORE the
-       loader tag; eager mode (data-lazy="no") so the page-load transaction
-       is captured, since Tracing is enabled. Must be the first executable
-       script on the page. -->
-  <script>
-    window.sentryOnLoad = function () {
-      Sentry.init({
-        // DSN comes from the loader script URL itself
-        debug: true, // TODO: remove once events are confirmed flowing
-        tracesSampleRate: 1.0, // all traces (Sentry's default for this product selection)
-        replaysSessionSampleRate: 0.1, // 10% of regular sessions recorded
-        replaysOnErrorSampleRate: 1.0, // 100% of sessions with an error
-      });
-    };
-  </script>
   <script
-    src="https://js-de.sentry-cdn.com/334194643bd6cdd2e52dc9a3dacb9353.min.js"
+    src="https://browser.sentry-cdn.com/10.74.0/bundle.tracing.replay.min.js"
     crossorigin="anonymous"
-    data-lazy="no"
   ></script>
+  <script>
+    Sentry.init({
+      dsn: "https://334194643bd6cdd2e52dc9a3dacb9353@o4512090055835648.ingest.de.sentry.io/4512090063831120",
+      integrations: [
+        Sentry.browserTracingIntegration(),
+        Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }),
+      ],
+      tracesSampleRate: 1.0,
+      replaysSessionSampleRate: 0.1,
+      replaysOnErrorSampleRate: 1.0,
+    });
+  </script>
 
   <!-- Tailwind CSS (Play CDN — no build step for this fully static site) -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -99,6 +95,7 @@
       },
     };
   </script>
+
   <style type="text/tailwindcss">
     @layer components {
       /* the shared glass language: every floating panel and control */
@@ -210,6 +207,24 @@
     }
     #gemsBtn svg { position: relative; z-index: 2; color: #ffd166; animation: gem-hue 3s linear infinite; }
     #gemsBtn .btn-label { position: relative; z-index: 2; color: #ffffff; font-weight: 600; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7); }
+
+    /* landing CTA: the same rainbow ring, pill-shaped */
+    #landingExplore { position: relative; border: none; overflow: visible; }
+    #landingExplore::before {
+      content: ''; position: absolute; inset: -4px; border-radius: 999px;
+      background: conic-gradient(from var(--gem-angle), #ff5964, #ffd166, #7ee081, #7ec8e3, #b48ef7, #ff5964);
+      filter: blur(5px); opacity: 0.85;
+      animation: gem-spin 3s linear infinite; pointer-events: none;
+    }
+    #landingExplore::after {
+      content: ''; position: absolute; inset: 0; border-radius: 999px; padding: 2px;
+      background: conic-gradient(from var(--gem-angle), #ff5964, #ffd166, #7ee081, #7ec8e3, #b48ef7, #ff5964);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+              mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+              mask-composite: exclude;
+      animation: gem-spin 3s linear infinite; pointer-events: none;
+    }
 
     @keyframes gem-spin { to { --gem-angle: 360deg; } }
     @keyframes gem-hue { to { filter: hue-rotate(360deg); } }
@@ -337,11 +352,32 @@
     </div>
   </div>
 
-  <footer id="attrib" class="glass fixed bottom-[calc(8px+env(safe-area-inset-bottom))] right-3 z-10 max-w-[500px] rounded-xl px-2.5 py-1 text-xs text-muted max-[1100px]:left-0 max-[1100px]:right-0 max-[1100px]:w-full max-[1100px]:max-w-none max-[1100px]:rounded-none max-[1100px]:bottom-0 max-[1100px]:text-center max-[1100px]:text-[0.6rem] max-[1100px]:leading-normal max-[1100px]:break-words">
-    Elevation: Mapzen/Tilezen terrain (SRTM et al.), AWS Open Data ·
-    Imagery: Esri, Maxar, Earthstar Geographics ·
-    Boundaries: © Vilniaus miesto savivaldybė / ID Vilnius
+  <footer id="attrib" class="glass fixed bottom-[calc(8px+env(safe-area-inset-bottom))] right-3 z-10 flex items-center gap-2 max-w-[500px] rounded-xl px-2.5 py-1 text-xs text-muted max-[1100px]:left-0 max-[1100px]:right-0 max-[1100px]:w-full max-[1100px]:max-w-none max-[1100px]:rounded-none max-[1100px]:bottom-0 max-[1100px]:text-[0.6rem] max-[1100px]:leading-normal">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 text-ink"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+    <span class="shrink-0 font-semibold text-ink">World Explorer</span>
+    <span class="shrink-0">·</span>
+    <span class="min-w-0">Elevation: Mapzen/Tilezen terrain (SRTM et al.), AWS Open Data ·
+      Imagery: Esri, Maxar, Earthstar Geographics ·
+      Boundaries: © Vilniaus miesto savivaldybė / ID Vilnius</span>
   </footer>
+
+  <!-- landing page overlay: first-visit showcase; dismissed until tomorrow -->
+  <div id="landing" class="fixed inset-0 z-[60] hidden overflow-y-auto overscroll-contain bg-night/90 backdrop-blur-md">
+    <div class="mx-auto flex min-h-full w-full max-w-5xl flex-col items-center gap-6 px-4 py-10 text-center sm:py-14">
+      <div class="flex flex-col items-center gap-3">
+        <h1 class="text-3xl font-bold text-ink sm:text-5xl"><span aria-hidden="true">🌍</span> World Explorer</h1>
+        <p class="max-w-xl text-sm leading-relaxed text-muted sm:text-lg">
+          A 3D topographic explorer — real elevation data, satellite imagery and a live day/night
+          sky. Fly from the green hills of Vilnius to the Grand Canyon, Everest and beyond.
+        </p>
+      </div>
+      <button id="landingExplore"
+              class="rounded-full bg-white px-8 py-3 text-base font-semibold text-night cursor-pointer transition-all duration-100 hover:-translate-y-0.5 hover:bg-[#f5f6f8] active:scale-95">
+        <span class="relative z-[2]">Explore the map →</span>
+      </button>
+      <div id="landingGrid" class="grid w-full grid-cols-2 gap-3 pb-6 sm:grid-cols-3 lg:grid-cols-5"></div>
+    </div>
+  </div>
 
   <script>
     // key help is desktop-only

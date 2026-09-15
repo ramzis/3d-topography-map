@@ -8,6 +8,7 @@ import { PlacesLayer } from './places.js';
 import { initAnalytics } from './analytics.js';
 import { mountSearch } from './search.js';
 import { mountGems } from './gems.js';
+import { mountLanding } from './landing.js';
 import { mountLocationStatus } from './location.js';
 import { FillerLayer } from './filler.js';
 import { teleportTo } from './teleport.js';
@@ -219,6 +220,12 @@ initAnalytics();
 // --- search + teleport ------------------------------------------------------------
 mountSearch({
   onSelect: (place) => teleportTo(place, { camera, controls, fly, manager }),
+});
+
+// landing showcase: card taps teleport there, Explore just closes it
+// (the app has been booting behind the overlay the whole time)
+mountLanding({
+  onTeleport: (place) => teleportTo(place, { camera, controls, fly, manager }),
 });
 
 // --- location gems: paid teleport list -----------------------------------------
