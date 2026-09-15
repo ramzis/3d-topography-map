@@ -10,7 +10,7 @@ export class VirtualStick {
 
     const el = (this.el = document.createElement('div'));
     el.className =
-      'glass fixed z-30 rounded-full touch-none select-none cursor-pointer ' +
+      'joystick glass fixed z-30 rounded-full touch-none select-none cursor-pointer ' +
       'flex items-center justify-center ' + className;
     el.style.width = el.style.height = '112px';
 

@@ -139,6 +139,16 @@
     /* ---- things Tailwind utilities can't express --------------------------- */
     canvas { display: block; touch-action: none; }
 
+    /* no text selection or long-press callouts anywhere (it's a map app,
+       not a document) — inputs keep their normal selection for typing */
+    html, body {
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+    img { -webkit-user-drag: none; }
+    input, textarea { -webkit-user-select: text; user-select: text; }
+
     kbd {
       min-width: 26px; padding: 4px 7px;
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -221,6 +231,14 @@
               mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
               mask-composite: exclude;
       animation: gem-spin 3s linear infinite; pointer-events: none;
+    }
+
+    /* zen mode: a phone flipped to landscape hides all the UI for a clean
+       immersive map view (transient overlays — teleport, landing, cookie —
+       still show; rotating back restores everything) */
+    @media (orientation: landscape) and (pointer: coarse) and (max-height: 500px) {
+      #navBar, #gemsBtn, #gemsPanel, #bottomCol, #keyHelp,
+      #exagCol, #altBox { display: none !important; }
     }
 
     @keyframes gem-spin { to { --gem-angle: 360deg; } }
@@ -377,6 +395,39 @@
     if (matchMedia('(pointer: coarse)').matches) {
       document.getElementById('keyHelp').style.display = 'none';
     }
+
+    // zen mode also hides the browser navbar — CSS alone can't do that, so
+    // request fullscreen on the next user gesture (browsers require one).
+    // Only exit fullscreen ourselves if we were the ones who entered it.
+    (() => {
+      const zen = matchMedia('(orientation: landscape) and (pointer: coarse) and (max-height: 500px)');
+      let enteredByUs = false, gestureListener = null;
+
+      const onGesture = () => {
+        document.documentElement.requestFullscreen?.().then(() => {
+          enteredByUs = true;
+        }).catch(() => {}); // user rejected / not allowed — zen CSS still applies
+        removeEventListener('pointerdown', onGesture);
+        gestureListener = null;
+      };
+
+      const update = () => {
+        if (zen.matches) {
+          if (!document.fullscreenElement && !gestureListener) {
+            gestureListener = addEventListener('pointerdown', onGesture, { once: true });
+          }
+        } else {
+          if (gestureListener) { removeEventListener('pointerdown', onGesture); gestureListener = null; }
+          if (document.fullscreenElement && enteredByUs) {
+            enteredByUs = false;
+            document.exitFullscreen?.().catch(() => {});
+          }
+        }
+      };
+
+      zen.addEventListener('change', update);
+      update();
+    })();
   </script>
   <script type="module" src="js/app.js"></script>
 </body>

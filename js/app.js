@@ -145,6 +145,7 @@ if (!isTouch) {
 
   // throttle buttons (drone-style climb / descend), centered between the sticks
   const altBox = document.createElement('div');
+  altBox.id = 'altBox';
   altBox.className =
     'fixed left-1/2 -translate-x-1/2 z-30 flex flex-col gap-2 ' +
     'bottom-[calc(64px+env(safe-area-inset-bottom))]';
