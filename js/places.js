@@ -3,6 +3,7 @@ import { makeLabel } from './labels.js';
 import { worldToMerc, mercXToLon, mercYToLat, lonToMercX, latToMercY, mercToWorld } from './geo.js';
 
 const QUERY_COOLDOWN_MS = 6000;
+const MAX_SPRITES = 600; // place-label cap — sprites hold canvas textures
 const MOVE_THRESHOLD = 0.4; // re-query after moving 40% of the query radius
 
 // Overpass public instances — on failure we rotate to the next mirror, and
@@ -27,12 +28,16 @@ export class PlacesLayer {
     this.lastCenter = null;
     this.lastRadius = 0;
     this.inFlight = false;
+    this.lastWx = 0; // eviction anchor: where the camera is looking
+    this.lastWz = 0;
     this.mirror = 0;        // index into MIRRORS — rotates on failure
     this.fails = 0;         // consecutive failures (drives the backoff)
     this.retryAt = 0;       // animation-timestamp gate: no queries before this
   }
 
   update(camera, target, tNow) {
+    this.lastWx = target.x;
+    this.lastWz = target.z;
     if (this.inFlight || tNow < this.retryAt || tNow - this.lastQueryAt < QUERY_COOLDOWN_MS) return;
     const radius = Math.max(10, Math.min(120, camera.position.distanceTo(target) * 1.4));
     if (this.lastCenter && target.distanceTo(this.lastCenter) < this.lastRadius * MOVE_THRESHOLD) {
@@ -93,6 +98,23 @@ export class PlacesLayer {
       sprite.visible = false; // shown once ground height is known
       this.scene.add(sprite);
       this.places.set(el.id, { name, kind, wx, wz, sprite });
+    }
+    this._evictFar();
+  }
+
+  /** place-label sprites grow forever while flying — cap the set and drop
+   *  (dispose) the ones farthest from the current view */
+  _evictFar() {
+    if (this.places.size <= MAX_SPRITES) return;
+    const entries = [...this.places.entries()];
+    const d = (p) => Math.hypot(p.wx - this.lastWx, p.wz - this.lastWz);
+    entries.sort(([, a], [, b]) => d(b) - d(a)); // farthest first
+    for (let i = 0; i < this.places.size - MAX_SPRITES; i++) {
+      const [id, p] = entries[i];
+      this.scene.remove(p.sprite);
+      p.sprite.material.map?.dispose();
+      p.sprite.material.dispose();
+      this.places.delete(id);
     }
   }
 

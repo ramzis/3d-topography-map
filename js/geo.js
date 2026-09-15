@@ -55,7 +55,16 @@ export function worldToChunk(wx, wz) {
 
 // --- tile fetch + decode -------------------------------------------------------
 const TILE_TTL = 1000 * 60 * 30; // memory cache 30 min
+// LRU cap: without it this cache grows unboundedly while flying and
+// eventually OOM-kills the renderer (tab silently reloads). The cap sits
+// above the live working set (900 near tiles + terrain chunks) so it only
+// evicts the stale tail of places you've flown away from.
+const CACHE_MAX_ENTRIES = 1400; // ~370 MB of decoded tiles/grids
 const decodedCache = new Map(); // "kind:z/x/y" -> { promise, ts }
+
+export function cacheStats() {
+  return { size: decodedCache.size, max: CACHE_MAX_ENTRIES };
+}
 let activeFetches = 0;
 const MAX_CONCURRENCY = 10;
 const waitQueue = [];
@@ -102,10 +111,18 @@ async function blobToImageData(blob) {
 function cached(kind, key, loader) {
   const full = `${kind}:${key}`;
   let entry = decodedCache.get(full);
-  if (entry && Date.now() - entry.ts < TILE_TTL) return entry.promise;
+  if (entry && Date.now() - entry.ts < TILE_TTL) {
+    // LRU touch: re-insert so the eviction tail is least-recently-used
+    decodedCache.delete(full);
+    decodedCache.set(full, entry);
+    return entry.promise;
+  }
   entry = { promise: loader(), ts: Date.now() };
   entry.promise.catch(() => decodedCache.delete(full));
   decodedCache.set(full, entry);
+  while (decodedCache.size > CACHE_MAX_ENTRIES) {
+    decodedCache.delete(decodedCache.keys().next().value);
+  }
   return entry.promise;
 }
 

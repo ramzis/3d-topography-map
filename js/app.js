@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { ChunkManager } from './chunks.js';
+import { cacheStats } from './geo.js';
 import { WardOverlay } from './wards.js';
 import { FlyRig } from './fly.js';
 import { PlacesLayer } from './places.js';
@@ -22,6 +23,12 @@ const ALWAYS_NOON_DEFAULT = true; // sun toggle starts on — always daytime
 // --- renderer / scene -----------------------------------------------------------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+// the classic mobile "silent" death: the GPU driver drops the WebGL
+// context (no JS error) and the page freezes — report it so we know
+renderer.domElement.addEventListener('webglcontextlost', (e) => {
+  window.Sentry?.captureMessage('WebGL context lost', 'fatal');
+  e.preventDefault();
+});
 renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
 
@@ -256,6 +263,7 @@ $('shareBtn').addEventListener('click', async () => {
 
 let lastChunkUpdate = 0;
 let lastFrameT = 0;
+let lastMemT = 0;
 renderer.setAnimationLoop((t) => {
   const dt = Math.min(0.1, (t - lastFrameT) / 1000 || 0.016);
   lastFrameT = t;
@@ -304,6 +312,23 @@ renderer.setAnimationLoop((t) => {
   }
   saveState(t);
   updateLocationStatus(t);
+
+  // memory breadcrumb every 10s: a tab that gets OOM-killed by the browser
+  // sends nothing at all (renderer dies, JS never runs again) — but the
+  // growth trajectory left in breadcrumbs/replays tells the story after the
+  // next successful event
+  if (t - lastMemT > 10000) {
+    lastMemT = t;
+    const cs = cacheStats();
+    const mem = performance.memory
+      ? ` · jsHeap ${(performance.memory.usedJSHeapSize / 1048576).toFixed(0)}MB`
+      : '';
+    window.Sentry?.addBreadcrumb({
+      category: 'memory',
+      level: 'info',
+      message: `tiles ${cs.size}/${cs.max} · places ${places.places.size} · chunks ${manager.chunks.size}${mem}`,
+    });
+  }
 
   places.updatePositions((wx, wz) => manager.groundWorldY(wx, wz));
   updateLabelFade();
