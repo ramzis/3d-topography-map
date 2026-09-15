@@ -3,6 +3,9 @@ import * as THREE from 'three';
 const ACCEL = 10;       // how quickly velocity approaches target (1/s)
 const DAMPING = 6;      // velocity decay when no input (1/s)
 const SPRINT = 4;
+const UP = new THREE.Vector3(0, 1, 0);
+const clamp1 = (v) => Math.max(-1, Math.min(1, v));
+const clampS = (v) => Math.max(-SPRINT, Math.min(SPRINT, v));
 
 const isTypingTarget = (e) => {
   const t = e.target;
@@ -18,6 +21,8 @@ export class FlyRig {
     this.baseSpeed = 15; // scene units / s (1 unit = 100 m)
     this.velocity = new THREE.Vector3();
     this.keys = new Set();
+    this.axes = { fwd: 0, strafe: 0, lift: 0, yaw: 0, pitch: 0 }; // virtual sticks (touch)
+    this.noPointerLock = false; // touch mode: no pointer lock, sticks drive axes
     this._euler = new THREE.Euler(0, 0, 0, 'YXZ');
     this._forward = new THREE.Vector3();
 
@@ -44,6 +49,7 @@ export class FlyRig {
       this.onSpeed?.(this.baseSpeed);
     };
     this._onClick = () => {
+      if (this.noPointerLock) return;
       if (this.enabled && document.pointerLockElement !== this.dom) this.dom.requestPointerLock();
     };
     this._onLockChange = () => {
@@ -61,10 +67,12 @@ export class FlyRig {
     addEventListener('wheel', this._onWheel, { passive: true });
     this.dom.addEventListener('click', this._onClick);
     document.addEventListener('pointerlockchange', this._onLockChange);
-    try {
-      const p = this.dom.requestPointerLock?.();
-      p?.catch?.(() => {}); // may fail without a user gesture — fine, click re-locks
-    } catch { /* pointer lock unavailable */ }
+    if (!this.noPointerLock) {
+      try {
+        const p = this.dom.requestPointerLock?.();
+        p?.catch?.(() => {}); // may fail without a user gesture — fine, click re-locks
+      } catch { /* pointer lock unavailable */ }
+    }
   }
 
   disable() {
@@ -83,18 +91,32 @@ export class FlyRig {
   update(dt) {
     if (!this.enabled) return;
     const k = this.keys;
-    const speed = this.baseSpeed * (k.has('ShiftLeft') || k.has('ShiftRight') ? SPRINT : 1);
+    // altitude-scaled speed: near the ground you move precisely, up high you
+    // traverse — a 56 km view at ground-level pace would take minutes to cross
+    const altScale = Math.min(10, 1 + this.camera.position.y / 100);
+    const speed = this.baseSpeed * altScale;
 
     this.camera.getWorldDirection(this._forward);
     const right = new THREE.Vector3().crossVectors(this._forward, this.camera.up).normalize();
 
+    // virtual-stick axes merge with the keys. A fully deflected stick is
+    // the W + Shift sprint speed; a modest push already matches plain W.
+    if (this.axes.yaw) this.camera.rotateOnWorldAxis(UP, -this.axes.yaw * dt * 1.6);
+    if (this.axes.pitch) {
+      this._euler.setFromQuaternion(this.camera.quaternion);
+      this._euler.x += this.axes.pitch * dt * 1.2;
+      this._euler.x = Math.max(-Math.PI / 2 + 0.001, Math.min(Math.PI / 2 - 0.001, this._euler.x));
+      this.camera.quaternion.setFromEuler(this._euler);
+    }
+    const sprintKey = k.has('ShiftLeft') || k.has('ShiftRight');
+    const fwdIn = clampS(clamp1((k.has('KeyW') ? 1 : 0) - (k.has('KeyS') ? 1 : 0)) * (sprintKey ? SPRINT : 1) + this.axes.fwd * SPRINT);
+    const strafeIn = clampS(clamp1((k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0)) * (sprintKey ? SPRINT : 1) + this.axes.strafe * SPRINT);
+    const liftIn = clampS(clamp1((k.has('Space') ? 1 : 0) - (k.has('KeyC') ? 1 : 0)) + this.axes.lift * SPRINT);
+
     const target = new THREE.Vector3();
-    if (k.has('KeyW')) target.addScaledVector(this._forward, speed);
-    if (k.has('KeyS')) target.addScaledVector(this._forward, -speed);
-    if (k.has('KeyD')) target.addScaledVector(right, speed);
-    if (k.has('KeyA')) target.addScaledVector(right, -speed);
-    if (k.has('Space')) target.y += speed;
-    if (k.has('KeyC')) target.y -= speed;
+    if (fwdIn) target.addScaledVector(this._forward, fwdIn * speed);
+    if (strafeIn) target.addScaledVector(right, strafeIn * speed);
+    target.y += liftIn * speed;
 
     if (target.lengthSq() > 0) {
       this.velocity.lerp(target, Math.min(1, ACCEL * dt));

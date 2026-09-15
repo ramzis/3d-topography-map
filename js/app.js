@@ -4,6 +4,8 @@ import { ChunkManager } from './chunks.js';
 import { cacheStats } from './geo.js';
 import { WardOverlay } from './wards.js';
 import { FlyRig } from './fly.js';
+import { mountExaggeration } from './exag.js';
+import { VirtualStick } from './joystick.js';
 import { PlacesLayer } from './places.js';
 import { initAnalytics } from './analytics.js';
 import { mountSearch } from './search.js';
@@ -66,15 +68,21 @@ const wards = new WardOverlay(manager, scene);
 const places = new PlacesLayer(scene);
 const filler = new FillerLayer(scene, manager);
 
+const exag = mountExaggeration({
+  value: DEFAULT_EXAGGERATION,
+  onChange: (f) => {
+    manager.setExaggeration(f);
+    wards.updateExaggeration(f);
+  },
+});
+
 // --- restore shared/saved view state (URL → localStorage → default) ----------------
 const savedState = stateFromUrl() || stateFromStorage();
 if (savedState) {
   applyState(savedState, camera, controls, (f) => {
-    const slider = document.getElementById('exaggeration');
-    slider.value = f;
-    document.getElementById('exagVal').textContent = `${f}×`;
-    manager.setExaggeration(f);
-    wards.updateExaggeration(f);
+    exag.set(f);
+    manager.setExaggeration(exag.get());
+    wards.updateExaggeration(exag.get());
   });
 } else {
   // default: low over Vilnius city center, looking across the city
@@ -85,9 +93,7 @@ if (savedState) {
     null
   );
 }
-const saveState = createStateSaver(camera, () =>
-  Number(document.getElementById('exaggeration').value)
-);
+const saveState = createStateSaver(camera, () => exag.get());
 const updateLocationStatus = mountLocationStatus(camera);
 
 manager.update(camera, controls.target);
@@ -101,13 +107,6 @@ wards
 
 // --- UI -------------------------------------------------------------------------------
 const $ = (id) => document.getElementById(id);
-
-$('exaggeration').addEventListener('input', (e) => {
-  const f = Number(e.target.value);
-  $('exagVal').textContent = `${f}×`;
-  manager.setExaggeration(f);
-  wards.updateExaggeration(f);
-});
 
 // touch devices keep the OrbitControls gestures:
 // one finger — orbit, pinch — zoom, two fingers — pan
@@ -132,17 +131,51 @@ if (!isTouch) {
   controls.enabled = false;
   fly.enable();
 } else {
-  // touch map gestures: one finger pans the map along the ground,
-  // two fingers rotate the view in place (pinch still zooms)
-  controls.touches.ONE = THREE.TOUCH.PAN;
-  controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
-  controls.screenSpacePanning = false; // pan in the ground plane, map-style
+  // touch: standard dual-stick scheme — left stick moves (forward/strafe),
+  // right stick looks (turn + up/down), hold buttons climb/descend,
+  // single tap glides to the tapped spot
+  controls.enabled = false;
+  fly.noPointerLock = true;
+  fly.enable();
+
+  const leftStick = new VirtualStick({ className: 'left-4 bottom-[calc(64px+env(safe-area-inset-bottom))]' });
+  const rightStick = new VirtualStick({ className: 'right-4 bottom-[calc(64px+env(safe-area-inset-bottom))]' });
+  leftStick.onChange = (x, y) => { fly.axes.strafe = x; fly.axes.fwd = -y; };
+  rightStick.onChange = (x, y) => { fly.axes.yaw = x; fly.axes.pitch = -y; };
+
+  // throttle buttons (drone-style climb / descend), centered between the sticks
+  const altBox = document.createElement('div');
+  altBox.className =
+    'fixed left-1/2 -translate-x-1/2 z-30 flex flex-col gap-2 ' +
+    'bottom-[calc(64px+env(safe-area-inset-bottom))]';
+  const chevron = (up) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${up ? 'm18 15-6-6-6 6' : 'm6 9 6 6 6-6'}"/></svg>`;
+  for (const dir of [1, -1]) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'icon-box';
+    btn.setAttribute('aria-label', dir > 0 ? 'climb' : 'descend');
+    btn.innerHTML = chevron(dir > 0);
+    const stop = () => { fly.axes.lift = 0; };
+    btn.addEventListener('pointerdown', (e) => { e.preventDefault(); fly.axes.lift = dir; });
+    btn.addEventListener('pointerup', stop);
+    btn.addEventListener('pointercancel', stop);
+    btn.addEventListener('pointerleave', stop);
+    btn.addEventListener('contextmenu', (e) => e.preventDefault()); // long-press menu
+    altBox.appendChild(btn);
+  }
+  document.body.appendChild(altBox);
+
+  // lift the centered bottom column clear of the sticks
+  document.getElementById('bottomCol').style.bottom = 'calc(205px + env(safe-area-inset-bottom))';
+  // anchor the exaggeration thermometer to the top-right, clear of the stick
+  exag.el.style.top = '6rem';
+  exag.el.style.transform = 'none';
 }
 
 // --- double-tap / double-click: raycast the tapped spot and glide there -----------
 const tapRay = new THREE.Raycaster();
 let glide = null; // { t0, dur, fromPos, fromTarget, toPos, toTarget }
-let lastTapAt = 0, lastTapX = 0, lastTapY = 0, touchStartX = 0, touchStartY = 0;
 
 function glideToScreen(cx, cy) {
   tapRay.setFromCamera(
@@ -169,27 +202,24 @@ function glideToScreen(cx, cy) {
   if (fly.enabled) fly.velocity.set(0, 0, 0);
 }
 
-renderer.domElement.addEventListener('touchstart', (e) => {
-  if (e.touches.length === 1) {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-  }
-}, { passive: true });
-renderer.domElement.addEventListener('touchend', (e) => {
-  if (e.changedTouches.length !== 1 || glide) return;
-  const t = e.changedTouches[0];
-  // ignore taps that were really drags
-  if (Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY) > 12) return;
-  const now = performance.now();
-  const isDouble =
-    now - lastTapAt < 320 && Math.hypot(t.clientX - lastTapX, t.clientY - lastTapY) < 40;
-  lastTapAt = now;
-  lastTapX = t.clientX;
-  lastTapY = t.clientY;
-  if (isDouble) {
-    lastTapAt = 0;
-    glideToScreen(t.clientX, t.clientY);
-  }
+// single tap on the map flies to the tapped spot
+let tapId = null, tapX = 0, tapY = 0, tapMoved = 0;
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (e.pointerType !== 'touch' || tapId !== null) return;
+  tapId = e.pointerId; tapX = e.clientX; tapY = e.clientY; tapMoved = 0;
+});
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (e.pointerId !== tapId) return;
+  tapMoved += Math.hypot(e.clientX - tapX, e.clientY - tapY);
+  tapX = e.clientX; tapY = e.clientY;
+});
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (e.pointerId !== tapId) return;
+  tapId = null;
+  if (tapMoved < 12 && !glide) glideToScreen(e.clientX, e.clientY);
+});
+renderer.domElement.addEventListener('pointercancel', (e) => {
+  if (e.pointerId === tapId) tapId = null;
 });
 if (!isTouch) renderer.domElement.addEventListener('dblclick', (e) => glideToScreen(e.clientX, e.clientY));
 
@@ -248,7 +278,7 @@ $('diceBtn').addEventListener('click', async () => {
 
 // --- share: copy a link that embeds the current view ------------------------------
 $('shareBtn').addEventListener('click', async () => {
-  writeUrl(encodeState(camera, Number($('exaggeration').value)));
+  writeUrl(encodeState(camera, exag.get()));
   const url = location.href;
   const btn = $('shareBtn');
   try {

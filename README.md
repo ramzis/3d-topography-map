@@ -40,13 +40,14 @@ in the repo root keeps GitHub's Jekyll processing off.
   then WASD — move (pitch-following), Space / C — up / down, Shift — sprint,
   mouse wheel — speed, Esc — release the mouse. Ground collision keeps the
   camera above the surface.
-- **Touch** — one finger orbit, pinch zoom, two-finger pan. Tap ⚙ for the
-  slider.
+- **Touch** — drone-style RC controls: dual virtual joysticks (left stick =
+  altitude + yaw, right stick = forward/strafe), drag on the map to look
+  around, single tap to glide to the tapped spot.
 - **Search & teleport** — type a place name in the search box (OpenStreetMap
   Nominatim geocoding, debounced); clicking a result shows a "✈️ Flying
   to…" overlay with a spinner, teleports the camera there, and stays until
   the destination's terrain chunks with imagery are loaded.
-- **Vertical exaggeration** slider, 1×–60× (default 6×).
+- **Vertical exaggeration** thermometer (right side), 1×–6× (default 6×).
 
 ## How it works
 
