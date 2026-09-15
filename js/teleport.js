@@ -3,12 +3,12 @@ import { lonToMercX, latToMercY, mercToWorld, worldToChunk } from './geo.js';
 export function teleportTo({ lat, lon, name }, { camera, controls, fly, manager }) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
-    overlay.id = 'teleportOverlay';
+    overlay.className = 'teleport-overlay';
     overlay.innerHTML =
       '<div class="teleport-card">' +
       '<div class="teleport-plane-track"><span class="teleport-plane">✈️</span></div>' +
       '<div class="teleport-spinner"></div>' +
-      `<div class="teleport-text">Flying to ${escapeHtml(name)}…</div>` +
+      `<div>Flying to ${escapeHtml(name)}…</div>` +
       '</div>';
     document.body.appendChild(overlay);
 

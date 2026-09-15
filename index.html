@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
   <title>World Explorer</title>
   <meta name="description" content="Interactive 3D globe terrain: real elevation data, satellite imagery, live day/night sky, place search and teleport. Fly anywhere on Earth — from Vilnius to anywhere." />
@@ -39,7 +39,7 @@
   <!-- emoji favicon (no file needed) -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>" />
 
-  <!-- Google Font: Sora -->
+  <!-- Google Font: Average Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Average+Sans&display=swap" rel="stylesheet" />
@@ -59,7 +59,169 @@
   }
   </script>
 
-  <link rel="stylesheet" href="css/style.css" />
+  <!-- Sentry: error monitoring + tracing + session replay (Loader Script —
+       the project DSN is baked into the loader URL). Configured BEFORE the
+       loader tag; eager mode (data-lazy="no") so the page-load transaction
+       is captured, since Tracing is enabled. Must be the first executable
+       script on the page. -->
+  <script>
+    window.sentryOnLoad = function () {
+      Sentry.init({
+        // DSN comes from the loader script URL itself
+        tracesSampleRate: 1.0, // all traces (Sentry's default for this product selection)
+        replaysSessionSampleRate: 0.1, // 10% of regular sessions recorded
+        replaysOnErrorSampleRate: 1.0, // 100% of sessions with an error
+      });
+    };
+  </script>
+  <script
+    src="https://js-de.sentry-cdn.com/334194643bd6cdd2e52dc9a3dacb9353.min.js"
+    crossorigin="anonymous"
+    data-lazy="no"
+  ></script>
+
+  <!-- Tailwind CSS (Play CDN — no build step for this fully static site) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: '#e8eaed',   // primary text
+            muted: '#9aa3ad', // secondary text
+            night: '#10141a', // page background
+          },
+          fontFamily: {
+            sans: ['Average Sans', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style type="text/tailwindcss">
+    @layer components {
+      /* the shared glass language: every floating panel and control */
+      .glass {
+        @apply bg-[rgba(16,20,26,0.55)] border border-white/20 backdrop-blur-md shadow-[0_8px_32px_rgba(13,38,38,0.5)];
+      }
+
+      /* square glass icon button (placement comes from utilities per use) */
+      .icon-box {
+        @apply flex items-center justify-center w-[42px] h-[42px] text-lg text-ink bg-[rgba(16,20,26,0.55)] border border-white/20 rounded-2xl backdrop-blur-md shadow-[0_8px_32px_rgba(13,38,38,0.5)] transition-all duration-100 cursor-pointer select-none [-webkit-tap-highlight-color:transparent] active:scale-90 hover:-translate-y-0.5 hover:bg-white/25;
+      }
+      .icon-box svg { @apply w-5 h-5 block; }
+      .icon-box.labelled { @apply flex-col gap-px text-[0.55em] tracking-[0.02em]; }
+      .icon-box.labelled svg { @apply w-[15px] h-[15px]; }
+      .icon-box.on { @apply text-[#ffd166]; }
+      .btn-label { @apply leading-none; }
+
+      /* search results + gem list items (created dynamically in JS) */
+      .search-result { @apply flex flex-col gap-px w-full px-3 py-2 text-left text-[0.9em] text-ink bg-transparent border-none cursor-pointer hover:bg-white/15; }
+      .search-sub { @apply text-xs text-muted; }
+      .search-status { @apply px-3 py-2 text-[0.8em] text-muted; }
+      .gem-item { @apply flex flex-col gap-px w-full px-3.5 py-2 text-left text-[0.9em] text-ink bg-transparent border-none cursor-pointer hover:bg-white/15; }
+      .gem-item.blurred { @apply blur-[4px] opacity-75 select-none pointer-events-none cursor-default; }
+      .gem-note { @apply my-1.5 text-[0.85em] leading-relaxed text-muted; }
+
+      /* keyboard help */
+      .key-groups { @apply flex flex-col gap-2.5 mt-1.5; }
+      .key-group { @apply flex flex-col gap-1; }
+      .key-desc { @apply text-[0.7em] uppercase tracking-[0.08em] text-muted; }
+      .key-row { @apply flex gap-[5px]; }
+
+      /* teleport overlay (created dynamically in js/teleport.js) */
+      .teleport-overlay { @apply fixed inset-0 z-50 flex items-center justify-center bg-[rgba(10,13,18,0.45)] backdrop-blur-md transition-opacity duration-500; }
+      .teleport-overlay.fade-out { @apply opacity-0; }
+      .teleport-card { @apply text-center text-ink; }
+      .teleport-plane-track { @apply relative h-16 w-[280px] mx-auto mb-3 overflow-hidden border-b-2 border-dashed border-white/25; }
+      .teleport-plane { @apply absolute bottom-1 text-[30px]; animation: planeFly 2.2s linear infinite; }
+      .teleport-spinner { @apply w-7 h-7 mx-auto mb-3 border-[3px] border-white/20 border-t-ink rounded-full; animation: spin 1s linear infinite; }
+    }
+
+    /* ---- things Tailwind utilities can't express --------------------------- */
+    canvas { display: block; touch-action: none; }
+
+    kbd {
+      min-width: 26px; padding: 4px 7px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.75em; color: #e8eaed; text-align: center;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-bottom-width: 2px;
+      border-radius: 6px;
+    }
+
+    /* exaggeration slider */
+    #exaggeration { width: 100%; accent-color: #e8eaed; margin: 0; }
+
+    /* state classes toggled from JS */
+    #locationStatus.visible { opacity: 1; pointer-events: auto; }
+    #gemsPanel.open { display: block; }
+    #gemsPanel.unlocked .gem-locked { display: none; }
+    #gemsPanel.unlocked #gemsList { display: block; }
+    #diceBtn.rolling { animation: diceSpin 0.55s ease infinite; pointer-events: none; }
+    #gemsStatus.error { color: #ff8a8a; }
+
+    /* gem activation input: keep our colors over browser autofill */
+    #gemCodeInput { -webkit-text-fill-color: #ffffff; caret-color: #ffffff; }
+    #gemCodeInput:-webkit-autofill {
+      -webkit-box-shadow: 0 0 0 1000px rgba(16, 20, 26, 0.55) inset;
+      -webkit-text-fill-color: #ffffff;
+    }
+
+    /* the locked-gem teaser fades toward its bottom */
+    #gemBlur {
+      overflow: hidden;
+      -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.5));
+              mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.5));
+    }
+    #gemBlur + .gem-note { margin-top: 2px; color: #e8eaed; font-weight: 600; }
+
+    /* gems buy button: sliding rainbow */
+    .gem-buy {
+      width: 100%; margin: 10px 0 4px; padding: 10px 16px;
+      font-size: 0.95em; font-weight: 600; color: #10141a;
+      background: linear-gradient(90deg, #ffd166, #7ee081, #7ec8e3, #b48ef7, #ff5964, #ffd166);
+      background-size: 200% 100%;
+      animation: gem-buy-slide 3s linear infinite;
+      border: none; border-radius: 999px; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .gem-buy:active { transform: scale(0.98); }
+
+    /* gems button: constant rainbow ring */
+    @property --gem-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+    #gemsBtn { border: none; overflow: visible; }
+    #gemsBtn::before {
+      content: ''; position: absolute; inset: -3px; border-radius: 17px;
+      background: conic-gradient(from var(--gem-angle), #ff5964, #ffd166, #7ee081, #7ec8e3, #b48ef7, #ff5964);
+      filter: blur(4px); opacity: 0.85;
+      animation: gem-spin 3s linear infinite; pointer-events: none;
+    }
+    #gemsBtn::after {
+      content: ''; position: absolute; inset: 0; border-radius: 14px; padding: 1.5px;
+      background: conic-gradient(from var(--gem-angle), #ff5964, #ffd166, #7ee081, #7ec8e3, #b48ef7, #ff5964);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+              mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+              mask-composite: exclude;
+      animation: gem-spin 3s linear infinite; pointer-events: none;
+    }
+    #gemsBtn svg { position: relative; z-index: 2; color: #ffd166; animation: gem-hue 3s linear infinite; }
+    #gemsBtn .btn-label { position: relative; z-index: 2; color: #ffffff; font-weight: 600; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7); }
+
+    @keyframes gem-spin { to { --gem-angle: 360deg; } }
+    @keyframes gem-hue { to { filter: hue-rotate(360deg); } }
+    @keyframes gem-buy-slide { to { background-position: 200% 0; } }
+    @keyframes diceSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes planeFly {
+      from { left: -44px; transform: translateY(0); }
+      50% { transform: translateY(-7px); }
+      to { left: 292px; transform: translateY(0); }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+
   <script type="importmap">
     {
       "imports": {
@@ -69,35 +231,37 @@
     }
   </script>
 </head>
-<body>
-  <div id="navBar">
-    <button id="sunBtn" class="icon-box labelled" aria-label="always daytime" title="Always daytime">
+<body class="h-dvh overflow-hidden bg-night text-ink font-sans text-base antialiased">
+  <div id="navBar" class="fixed top-3 left-1/2 -translate-x-1/2 z-20 flex items-stretch gap-2 w-[min(60vw,420px)] max-[1100px]:left-[62px] max-[1100px]:right-3 max-[1100px]:translate-x-0 max-[1100px]:w-auto">
+    <button id="sunBtn" class="icon-box labelled shrink-0" aria-label="always daytime" title="Always daytime">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
       <span class="btn-label">Sun</span>
     </button>
-    <div id="searchBar">
-      <input type="search" id="searchInput" placeholder="Search a place…" autocomplete="off" />
-      <div id="searchResults"></div>
+    <div id="searchBar" class="relative flex grow items-stretch">
+      <input type="search" id="searchInput" placeholder="Search a place…" autocomplete="off"
+             class="glass grow min-w-0 rounded-full px-[18px] text-base text-ink outline-none placeholder:text-muted focus:border-white/40" />
+      <div id="searchResults" class="glass absolute left-0 right-0 top-full -mt-px overflow-hidden rounded-b-3xl empty:hidden"></div>
     </div>
-    <button id="diceBtn" class="icon-box labelled" aria-label="teleport to a random place" title="Random place">
+    <button id="diceBtn" class="icon-box labelled shrink-0" aria-label="teleport to a random place" title="Random place">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1" fill="currentColor"/></svg>
       <span class="btn-label">Random</span>
     </button>
   </div>
 
-  <div id="gemsPanel">
-    <div class="gem-head">💎 Location Gems</div>
+  <div id="gemsPanel" class="glass fixed top-[calc(62px+env(safe-area-inset-top))] left-3 z-[21] hidden w-[min(60vw,420px)] max-h-[min(55vh,460px)] overflow-y-auto rounded-3xl max-[1100px]:left-[62px] max-[1100px]:right-3 max-[1100px]:w-auto max-[1100px]:max-h-[48vh]">
+    <div class="px-3.5 pt-2.5 pb-1.5 font-semibold">💎 Location Gems</div>
 
     <!-- locked: buy + paste the emailed activation code -->
-    <div class="gem-locked">
+    <div class="gem-locked px-3.5 pb-3 pt-1">
       <p class="gem-note">Have an activation code?</p>
-      <div class="gem-code-row">
+      <div class="flex gap-2">
         <input type="text" id="gemCodeInput" placeholder="Paste your activation code"
-               autocomplete="off" spellcheck="false" />
-        <button id="gemPasteBtn" class="icon-box" title="Paste from clipboard">
+               autocomplete="off" spellcheck="false"
+               class="glass grow min-w-0 h-[42px] px-3.5 rounded-full text-white uppercase text-base outline-none focus:border-white/40" />
+        <button id="gemPasteBtn" class="icon-box shrink-0" title="Paste from clipboard">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
         </button>
-        <button id="gemActivateBtn" class="icon-box">→</button>
+        <button id="gemActivateBtn" class="icon-box shrink-0">→</button>
       </div>
 
       <p class="gem-note">Unlock 100 hand-picked wonders of the world —
@@ -121,33 +285,33 @@
     </div>
 
     <!-- unlocked: the gem list -->
-    <div id="gemsList"></div>
-    <p id="gemsStatus"></p>
+    <div id="gemsList" class="hidden"></div>
+    <p id="gemsStatus" class="m-0 px-3.5 pb-2.5 pt-1 text-xs text-muted min-h-[12px]"></p>
   </div>
 
-  <div id="bottomCol">
-    <div id="locRow">
-      <div id="locationStatus">
-        <svg class="loc-pin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+  <div id="bottomCol" class="fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-[19] flex flex-col gap-2 w-[min(80vw,340px)] max-[1100px]:bottom-[calc(52px+env(safe-area-inset-bottom))]">
+    <div id="locRow" class="flex gap-2">
+      <div id="locationStatus" class="glass flex grow min-w-0 items-center gap-[7px] min-h-[42px] rounded-full px-3.5 py-1.5 text-[0.85em] leading-snug text-left text-ink opacity-0 pointer-events-none transition-opacity duration-[400ms] [overflow-wrap:anywhere]">
+        <svg class="loc-pin w-3.5 h-3.5 shrink-0 text-ink" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
         <span id="locationText"></span>
       </div>
-      <button id="shareBtn" class="icon-box" aria-label="share this view" title="Share this view">
+      <button id="shareBtn" class="icon-box shrink-0" aria-label="share this view" title="Share this view">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
       </button>
     </div>
 
-    <div id="exagBar">
-      <label for="exaggeration">Exaggeration <output id="exagVal">6×</output></label>
+    <div id="exagBar" class="glass rounded-3xl px-4 py-2.5">
+      <label for="exaggeration" class="flex justify-between text-[0.8em] mb-1">Exaggeration <output id="exagVal" class="text-muted">6×</output></label>
       <input type="range" id="exaggeration" min="1" max="60" step="0.5" value="6" />
     </div>
   </div>
 
-  <button id="gemsBtn" class="icon-box labelled" aria-label="location gems" title="Location Gems">
+  <button id="gemsBtn" class="icon-box labelled fixed top-3 left-3 z-20" aria-label="location gems" title="Location Gems">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>
     <span class="btn-label">Gems</span>
   </button>
 
-  <div id="keyHelp">
+  <div id="keyHelp" class="glass fixed top-3 right-3 z-20 rounded-3xl p-4">
     <div class="key-groups">
       <div class="key-group">
         <div class="key-desc">move</div>
@@ -172,7 +336,7 @@
     </div>
   </div>
 
-  <footer id="attrib">
+  <footer id="attrib" class="glass fixed bottom-[calc(8px+env(safe-area-inset-bottom))] right-3 z-10 max-w-[500px] rounded-xl px-2.5 py-1 text-xs text-muted max-[1100px]:left-0 max-[1100px]:right-0 max-[1100px]:w-full max-[1100px]:max-w-none max-[1100px]:rounded-none max-[1100px]:bottom-0 max-[1100px]:text-center max-[1100px]:text-[0.6rem] max-[1100px]:leading-normal max-[1100px]:break-words">
     Elevation: Mapzen/Tilezen terrain (SRTM et al.), AWS Open Data ·
     Imagery: Esri, Maxar, Earthstar Geographics ·
     Boundaries: © Vilniaus miesto savivaldybė / ID Vilnius
