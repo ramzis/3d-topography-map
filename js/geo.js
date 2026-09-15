@@ -62,7 +62,7 @@ const TILE_TTL = 1000 * 60 * 30; // memory cache 30 min
 // much smaller budget — phone browsers kill the tab far below the ~370 MB
 // the desktop cap represents (canvas backing stores count hard on iOS).
 const IS_TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-const CACHE_MAX_ENTRIES = IS_TOUCH ? 400 : 1400; // mobile ~100 MB · desktop ~370 MB of decoded tiles/grids
+const CACHE_MAX_ENTRIES = IS_TOUCH ? 650 : 1400; // mobile ~165 MB · desktop ~370 MB — mobile cap must exceed the live tile working set (near ring + chunks) or churn becomes a refetch flood
 const decodedCache = new Map(); // "kind:z/x/y" -> { promise, ts }
 
 export function cacheStats() {
@@ -88,17 +88,52 @@ function release() {
   }
 }
 
+// per-host circuit breaker: after FETCH_BURST consecutive failures the host
+// fails fast for COOLDOWN ms — otherwise 3-retry fetches to a throttled
+// server (403/429) clog the 10-slot fetch queue and starve EVERYTHING.
+// After the cooldown expires, one real attempt decides the next round.
+const FETCH_BURST = 8;
+const COOLDOWN = 30_000;
+const hostFails = new Map();    // host -> consecutive failures
+const hostCooldown = new Map(); // host -> cooldown-until timestamp
+
+export function imageryCooling() {
+  const until = hostCooldown.get('server.arcgisonline.com') || 0;
+  return until > Date.now();
+}
+
 async function fetchBlob(url) {
+  const host = new URL(url).host;
+  if ((hostCooldown.get(host) || 0) > Date.now()) {
+    fetchStats.imgHttp++; // fail-fast while cooling down
+    throw new Error(`host ${host} cooling down`);
+  }
   let lastErr;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const res = await fetch(url, { mode: 'cors' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        // rate-limit / ban: retrying immediately only deepens the block —
+        // fail this call at once and let the circuit breaker cool down
+        if (res.status === 403 || res.status === 429 || res.status === 401) {
+          throw Object.assign(new Error(`HTTP ${res.status}`), { fatal: true });
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
+      hostFails.set(host, 0);
+      hostCooldown.delete(host);
       return await res.blob();
     } catch (err) {
       lastErr = err;
+      if (err.fatal) break; // ban/rate-limit — no point retrying now
       if (attempt < 2) await new Promise((r) => setTimeout(r, 400 * 2 ** attempt));
     }
+  }
+  const fails = (hostFails.get(host) || 0) + 1;
+  hostFails.set(host, fails);
+  if (fails >= FETCH_BURST) {
+    hostFails.set(host, 0);
+    hostCooldown.set(host, Date.now() + COOLDOWN);
   }
   throw lastErr;
 }
@@ -109,6 +144,41 @@ async function blobToImageData(blob) {
   // (±1 on the R channel = ±256 m spikes) — deck.gl issue #10400.
   const bytes = new Uint8Array(await blob.arrayBuffer());
   return decodePNG(bytes);
+}
+
+// --- imagery decode with fallback ---------------------------------------------
+// iOS Safari has been observed rejecting createImageBitmap for some blobs
+// (elevations decode fine; every imagery path dies). Fall back to a classic
+// <img> decode — slower, but it works everywhere. Counters in fetchStats
+// tell the telemetry which path actually ran.
+export const fetchStats = { elev: 0, elevFail: 0, img: 0, imgFail: 0, imgHttp: 0, lastImgAt: 0 };
+
+export async function blobToImageBitmap(blob) {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      fetchStats.img++;
+      return await createImageBitmap(blob);
+    } catch (err) {
+      fetchStats.imgFail++;
+      // fall through to the <img> path below
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = new Image();
+    img.decoding = 'sync';
+    await new Promise((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('img decode failed'));
+      img.src = url;
+    });
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    return img; // HTMLImageElement: drawImage-compatible; no .close() — callers guard
+  } catch (err) {
+    URL.revokeObjectURL(url);
+    fetchStats.imgFail++;
+    throw err;
+  }
 }
 
 function cached(kind, key, loader) {
@@ -137,11 +207,15 @@ export function fetchElevationGrid(tx, ty, zoom = TERRAIN_ZOOM) {
         `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${zoom}/${tx}/${ty}.png`
       );
       const img = await blobToImageData(blob);
+      fetchStats.elev++;
       const out = new Float32Array(img.width * img.height);
       for (let i = 0, p = 0; i < out.length; i++, p += img.bpp) {
         out[i] = img.data[p] * 256 + img.data[p + 1] + img.data[p + 2] / 256 - 32768;
       }
       return out;
+    } catch (err) {
+      fetchStats.elevFail++;
+      throw err;
     } finally {
       release();
     }
@@ -149,7 +223,7 @@ export function fetchElevationGrid(tx, ty, zoom = TERRAIN_ZOOM) {
 }
 
 export function fetchImageryCanvas(tx, ty, zoom = IMAGERY_ZOOM) {
-  return cached('img', `${zoom}/${tx}/${ty}`, async () => {
+  const p = cached('img', `${zoom}/${tx}/${ty}`, async () => {
     const k = 2 ** (zoom - TERRAIN_ZOOM);
     const loaders = [];
     for (let dy = 0; dy < k; dy++) {
@@ -163,7 +237,10 @@ export function fetchImageryCanvas(tx, ty, zoom = IMAGERY_ZOOM) {
               const blob = await fetchBlob(
                 `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${y}/${x}`
               );
-              return await createImageBitmap(blob);
+              return await blobToImageBitmap(blob);
+            } catch (err) {
+              fetchStats.imgHttp++; // HTTP/network-level failure (rate limit?)
+              throw err;
             } finally {
               release();
             }
@@ -181,8 +258,12 @@ export function fetchImageryCanvas(tx, ty, zoom = IMAGERY_ZOOM) {
       const dx = (i % k) * TILE_PX;
       const dy = Math.floor(i / k) * TILE_PX;
       ctx.drawImage(bmp, dx, dy, TILE_PX, TILE_PX);
-      bmp.close();
+      bmp.close?.(); // HTMLImageElement fallback has no close
     });
     return canvas;
   });
+  // any successful imagery fetch (fresh or cache hit) marks the feed alive —
+  // the app.js outage banner clears when this goes quiet for 20s+
+  p.then(() => { fetchStats.lastImgAt = Date.now(); }, () => {});
+  return p;
 }

@@ -9,6 +9,7 @@ import {
   mercToWorld,
   fetchElevationGrid,
   fetchImageryCanvas,
+  imageryCooling,
 } from './geo.js';
 
 export const CHUNK_SEGS = 36; // 79 m vertex spacing — matches v1's 78 m (20000/255); finer sampling amplifies facet speckle
@@ -260,12 +261,19 @@ const sharedMats = {
   terrainColor: new THREE.Color(0xb8a47e),
 };
 
-const MAX_CHUNKS = 120; // hard cap so a zoom-out cannot queue thousands of tiles
+// touch detection (guarded for headless tests, where matchMedia is absent)
+const IS_TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+
+const MAX_CHUNKS = IS_TOUCH ? 80 : 120; // hard cap so a zoom-out cannot queue thousands of tiles
 // z16 imagery is a 2048×2048 canvas (16 MB RGBA) per chunk — doubled by the
 // GPU upload and parked in the decoded cache. Phones can't afford 3 of
 // those on top of everything else, so touch caps the LOD at z15 (512²).
-const IS_TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 const MAX_IMAGERY_ZOOM = IS_TOUCH ? 15 : 16;
+// how many chunks may hold top-tier imagery at once — each is a big canvas
+// (16 MB at z16 desktop, 1 MB at z15 touch, doubled again by canvas backing).
+// Without this cap every chunk within 120 units upgraded on touch and the
+// accumulated ~2.5 MB/chunk OOM-killed phones at ~70 chunks.
+const TOP_TIER_MAX = IS_TOUCH ? 8 : 3;
 const SKIRT_DEPTH = 1.5; // scene units (1 unit = 100 m) — covers inter-chunk height mismatch
 const DISPATCH_LIMIT = 10; // loads in flight; the rest wait and re-sort as you look around
 
@@ -392,24 +400,59 @@ export class ChunkManager {
     this._updateLod(camera);
   }
 
+  // (re)dispatch base imagery for a chunk — retried with a 10s backoff
+  // after failures, so a transient outage (rate limit, network handoff)
+  // leaves chunks flat only until the next retry, not forever
+  _ensureImagery(chunk) {
+    if (chunk.imageryTex || chunk.imageryPending) return;
+    chunk.imageryPending = true;
+    fetchImageryCanvas(chunk.tx, chunk.ty)
+      .then((canvas) => {
+        if (this.chunks.get(chunk.key) === chunk) chunk.applyImagery(canvas);
+      })
+      .catch(() => {
+        chunk.imageryFailedAt = performance.now();
+        chunk.revealWithoutImagery(); // visible flat while the retry runs
+      })
+      .finally(() => {
+        chunk.imageryPending = false;
+      });
+  }
+
   _updateLod(camera) {
     const cam = camera.position;
     const ready = [...this.chunks.values()].filter((c) => c.state === 'ready');
     ready.sort(
       (a, b) => cam.distanceToSquared(a.group.position) - cam.distanceToSquared(b.group.position)
     );
-    let atZ16 = 0;
+    let atTop = 0;
+    // imagery retry pass: chunks that failed their base imagery get
+    // re-dispatched every 10s (max 3 per pass so a throttled server isn't
+    // hammered) — previously one transient failure meant flat terrain forever
+    const now = performance.now();
+    let retries = 0;
+    if (!imageryCooling()) {
+      for (const c of ready) {
+        if (retries >= 3) break;
+        if (!c.imageryTex && !c.imageryPending && now - (c.imageryFailedAt || 0) > 10000) {
+          this._ensureImagery(c);
+          retries++;
+        }
+      }
+    }
     for (const c of ready) {
       const d = cam.distanceTo(c.group.position);
-      let target = d < 25 ? MAX_IMAGERY_ZOOM : d < 120 ? 15 : 13;
-      if (target === 16) {
-        if (atZ16 >= 3) target = 15;
-        else atZ16++;
+      // touch: only the nearest TOP_TIER_MAX chunks get z15 — the rest stay
+      // at base z13 (desktop keeps its z15 mid-tier inside 120 units)
+      let target = d < 25 ? MAX_IMAGERY_ZOOM : d < 120 && !IS_TOUCH ? 15 : 13;
+      if (target === MAX_IMAGERY_ZOOM) {
+        if (atTop >= TOP_TIER_MAX) target = IS_TOUCH ? 13 : 15;
+        else atTop++;
       }
       const cur = c.imageryZoom ?? 13;
       if (target > cur && !c.imageryUpgrade) {
-        if (target === 16 && (this._z16InFlight || this.pending.size > 0)) continue; // don't starve chunk loads
-        if (target === 16) this._z16InFlight = true;
+        if (target === MAX_IMAGERY_ZOOM && (this._topInFlight || this.pending.size > 0)) continue; // don't starve chunk loads
+        if (target === MAX_IMAGERY_ZOOM) this._topInFlight = true;
         c.imageryUpgrade = true;
         fetchImageryCanvas(c.tx, c.ty, target)
           .then((canvas) => {
@@ -418,12 +461,14 @@ export class ChunkManager {
           .catch(() => { /* keep the current tier */ })
           .finally(() => {
             c.imageryUpgrade = false;
-            if (target === 16) this._z16InFlight = false;
+            if (target === MAX_IMAGERY_ZOOM) this._topInFlight = false;
           });
-      } else if (target < cur && cur === 16) {
+      } else if (IS_TOUCH ? (cur > 13 && d > 50) : (target < cur && cur === 16)) {
+        // touch: downgrade z15 only well past the upgrade radius (25) — a
+        // hard boundary makes movement flap chunks between tiers, and each
+        // flap re-fetches 16 sub-tiles through the shared fetch queue
         c.downgradeImagery();
       }
-      // z15 is sticky — no downgrade cost worth the visual pop
     }
   }
 
@@ -470,14 +515,9 @@ export class ChunkManager {
       for (const cb of this.onChunkReady) cb(chunk);
       this._emitStatus();
       // imagery streams in after the mesh is built; the chunk stays hidden
-      // until it arrives (or fails, in which case reveal in flat color)
-      fetchImageryCanvas(tx, ty)
-        .then((canvas) => {
-          if (this.chunks.get(key) === chunk) chunk.applyImagery(canvas);
-        })
-        .catch(() => {
-          if (this.chunks.get(key) === chunk) chunk.revealWithoutImagery();
-        });
+      // until it arrives (or fails, in which case reveal in flat color — the
+      // _updateLod retry pass re-dispatches every 10s until it succeeds)
+      this._ensureImagery(chunk);
     } catch (err) {
       chunk.state = 'failed';
       this.chunks.delete(key);

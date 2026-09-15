@@ -12,6 +12,7 @@ import { mountSearch } from './search.js';
 import { mountGems } from './gems.js';
 import { mountLanding } from './landing.js';
 import { mountLocationStatus } from './location.js';
+import { fetchStats } from './geo.js';
 import { FillerLayer } from './filler.js';
 import { teleportTo } from './teleport.js';
 import { DayNightSky } from './sky.js';
@@ -95,6 +96,18 @@ if (savedState) {
 }
 const saveState = createStateSaver(camera, () => exag.get());
 const updateLocationStatus = mountLocationStatus(camera);
+
+// --- imagery outage notice -------------------------------------------------------
+// When satellite tiles stop arriving (blocked network, offline, throttling)
+// chunks fall back to flat-colored terrain — say so instead of looking
+// broken, and clear the notice automatically when imagery recovers.
+const netBanner = document.createElement('div');
+netBanner.textContent = '🛰 Satellite imagery unavailable — terrain-only mode, retrying…';
+netBanner.className =
+  'glass fixed top-3 left-1/2 -translate-x-1/2 z-30 rounded-full px-4 py-2 text-sm ' +
+  'pointer-events-none hidden whitespace-nowrap';
+document.body.appendChild(netBanner);
+let lastBannerCheck = 0;
 
 manager.update(camera, controls.target);
 
@@ -365,15 +378,23 @@ renderer.setAnimationLoop((t) => {
     const mem = performance.memory
       ? ` · jsHeap ${(performance.memory.usedJSHeapSize / 1048576).toFixed(0)}MB`
       : '';
-    const msg = `tiles ${cs.size}/${cs.max} · places ${places.places.size} · chunks ${manager.chunks.size}${mem}`;
-    // console too: when the phone is tethered (Safari Web Inspector /
-    // chrome://inspect) this is the only way to watch the trajectory live
-    console.info(`[mem] ${msg}`);
     window.Sentry?.addBreadcrumb({
       category: 'memory',
       level: 'info',
-      message: msg,
+      message: `tiles ${cs.size}/${cs.max} · places ${places.places.size} · chunks ${manager.chunks.size}${mem}`,
     });
+  }
+
+  // imagery outage notice: untextured ready chunks piling up + no tile
+  // success for 20s ⇒ tell the user (auto-clears on recovery)
+  if (t - lastBannerCheck > 2000) {
+    lastBannerCheck = t;
+    let flat = 0;
+    for (const c of manager.chunks.values()) {
+      if (c.state === 'ready' && !c.imageryTex) flat++;
+    }
+    const outage = flat >= 5 && Date.now() - fetchStats.lastImgAt > 20000;
+    netBanner.classList.toggle('hidden', !outage);
   }
 
   places.updatePositions((wx, wz) => manager.groundWorldY(wx, wz));

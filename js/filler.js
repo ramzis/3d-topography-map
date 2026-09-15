@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   TERRAIN_ZOOM, tileSpanMeters, MERC_NORTH, WORLD_SCALE,
-  worldToMerc, mercToWorld, fetchImageryCanvas,
+  worldToMerc, mercToWorld, fetchImageryCanvas, blobToImageBitmap, imageryCooling,
 } from './geo.js';
 import { CHUNK_WORLD_SIZE } from './chunks.js';
 
@@ -15,9 +15,9 @@ const Z13_RADIUS = IS_TOUCH ? 1000 : 1500; // near ring: full-detail z13 tiles a
 // far ring zoom adapts to altitude (see _pickFarZoom) so the tile count
 // stays ~a few hundred no matter how far out we fill
 const FAR_Y_DROP = 1.5;       // far ring sits below the near ring (no z-fighting)
-const TILES_IN_FLIGHT = 24;
-const MAX_TILES = IS_TOUCH ? 500 : 900; // near-ring budget — smaller disc on mobile (bandwidth + RAM)
-const FAR_TILES_IN_FLIGHT = 16; // concurrency only — the far ring itself is uncapped
+const TILES_IN_FLIGHT = IS_TOUCH ? 8 : 24; // gentler on cellular — a big opening burst is what trips ArcGIS rate limits
+const MAX_TILES = IS_TOUCH ? 300 : 900; // near-ring budget — smaller disc on mobile (bandwidth + RAM)
+const FAR_TILES_IN_FLIGHT = IS_TOUCH ? 6 : 16; // concurrency only — the far ring itself is uncapped
 const WALL_SEGMENTS = 8;
 const REBUILD_TOL = 0.05;
 
@@ -262,10 +262,13 @@ export class FillerLayer {
       this._loadFarTile(tx, ty);
     }
 
-    // near-ring detail — after the coarse screen fill (see above)
-    for (const [tx, ty] of this._nearWanted || []) {
-      if (this.pending.size >= TILES_IN_FLIGHT) break;
-      this._loadTile(tx, ty);
+    // near-ring detail — after the coarse screen fill (see above);
+    // paused while the imagery host is cooling down (circuit breaker)
+    if (!imageryCooling()) {
+      for (const [tx, ty] of this._nearWanted || []) {
+        if (this.pending.size >= TILES_IN_FLIGHT) break;
+        this._loadTile(tx, ty);
+      }
     }
   }
 
@@ -304,11 +307,11 @@ export class FillerLayer {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       if (this.farTiles.has(key)) return;
       this.fails = 0;
-      const bmp = await createImageBitmap(await res.blob());
+      const bmp = await blobToImageBitmap(await res.blob());
       const canvas = document.createElement('canvas');
       canvas.width = canvas.height = 256;
       canvas.getContext('2d').drawImage(bmp, 0, 0);
-      bmp.close();
+      bmp.close?.(); // HTMLImageElement fallback has no close
 
       // _farBounds returns the tile's world rect [x0, x1, z0, z1] — take
       // the mesh position from its center (a past bug sliced [x0, x1] as
