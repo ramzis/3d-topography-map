@@ -221,6 +221,10 @@
       #sunBtn { order: 2; }
       /* gems sits on the left at the same height as the top line + Share */
       #gemsBtn { top: calc(env(safe-area-inset-top, 0px) + 2px); }
+      /* left button stack under gems: control-mode toggle, then compass
+         (these elements are created by JS on touch devices only) */
+      #ctrlModeBtn { position: fixed; left: 12px; top: calc(env(safe-area-inset-top, 0px) + 54px); z-index: 20; }
+      #compassBtn { position: fixed; left: 12px; top: calc(env(safe-area-inset-top, 0px) + 104px); z-index: 20; }
       #gemsPanel { top: calc(112px + env(safe-area-inset-top, 0px)); }
 
       /* the location line is the search bar: tap the icon (or the line) to type */
@@ -304,7 +308,7 @@
        still show; rotating back restores everything) */
     @media (orientation: landscape) and (pointer: coarse) and (max-height: 500px) {
       #navBar, #locBar, #gemsBtn, #gemsPanel, #keyHelp,
-      #exagCol, #altBox { display: none !important; }
+      #exagCol, #altBox, #ctrlModeBtn, #compassBtn { display: none !important; }
     }
 
     @keyframes gem-spin { to { --gem-angle: 360deg; } }

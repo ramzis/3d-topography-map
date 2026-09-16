@@ -14,6 +14,7 @@ import { mountLanding } from './landing.js';
 import { mountLocationStatus } from './location.js';
 import { fetchStats } from './geo.js';
 import { FillerLayer } from './filler.js';
+import { GestureMap } from './gestures.js';
 import { teleportTo } from './teleport.js';
 import { DayNightSky } from './sky.js';
 import { rollRandomLandPlace } from './dice.js';
@@ -128,6 +129,11 @@ const fly = new FlyRig(camera, renderer.domElement, {
   getGroundY: (wx, wz) => manager.groundWorldY(wx, wz),
 });
 
+// mobile control state: gesture map (default) vs legacy virtual joystick
+let mobileControlMode = 'gesture';
+let gesture = null;
+let viewAnim = null; // compass reset: yaw/pitch interpolation
+
 // --- always-day toggle: pin the sun to local noon ------------------------------------
 // on by default — daytime, until the user turns it off
 sky.setAlwaysNoon(ALWAYS_NOON_DEFAULT);
@@ -180,9 +186,9 @@ if (!isTouch) {
   }
   document.body.appendChild(altBox);
 
-  // anchor the exaggeration thermometer to the top-right, clear of the
-  // sticks and below the location bar + navbar stack
-  exag.el.style.top = '7rem';
+  // anchor the exaggeration thermometer to the top-left, clear of the
+  // left button stack (gems / mode toggle / compass) and the sticks
+  exag.el.style.top = '10rem';
 
   // the location line doubles as the search bar: move the search input +
   // dropdown into the pill (before mountSearch binds them — listeners are
@@ -201,8 +207,15 @@ if (!isTouch) {
     searchInput.focus();
   };
   const endSearch = () => {
-    loc.classList.remove('searching');
-    searchResults.innerHTML = '';
+    // collapse after a short delay: tapping a result first blurs the input
+    // (focusout) and only then fires the result's click — clearing the
+    // dropdown instantly would remove the button before that click lands,
+    // which is why tap-to-select did nothing on mobile
+    setTimeout(() => {
+      if (document.activeElement === searchInput) return; // refocused — typing continues
+      loc.classList.remove('searching');
+      searchResults.innerHTML = '';
+    }, 250);
   };
   locSearchBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -212,6 +225,69 @@ if (!isTouch) {
     if (!loc.classList.contains('searching')) startSearch();
   });
   searchInput.addEventListener('focusout', endSearch);
+
+  // --- control modes: Google Earth-style gestures (default) vs the legacy
+  // dual-stick scheme. The toggle button on the left stack shows the mode
+  // it switches TO; the compass (gesture mode only) resets north-up top-down.
+  gesture = new GestureMap(camera, renderer.domElement, {
+    getGroundY: (wx, wz) => manager.groundWorldY(wx, wz),
+    onTouchStart: () => { glide = null; viewAnim = null; }, // a touch interrupts animations
+  });
+
+  const ICONS = {
+    // what the toggle switches TO, shown as the button's face
+    sticks:
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12h4"/><path d="M8 10v4"/><circle cx="15" cy="11" r="1" fill="currentColor"/><circle cx="17.5" cy="13.5" r="1" fill="currentColor"/><path d="M17.2 5H6.8a4 4 0 0 0-3.9 3.1L1.5 15a3 3 0 0 0 5.3 2.2L9 15h6l2.2 2.2A3 3 0 0 0 22.5 15l-1.4-6.9A4 4 0 0 0 17.2 5Z"/></svg>',
+    gestures:
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v4"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>',
+  };
+
+  const ctrlModeBtn = document.createElement('button');
+  ctrlModeBtn.id = 'ctrlModeBtn';
+  ctrlModeBtn.type = 'button';
+  ctrlModeBtn.className = 'icon-box labelled';
+  ctrlModeBtn.addEventListener('click', () => {
+    mobileControlMode = mobileControlMode === 'gesture' ? 'joystick' : 'gesture';
+    applyControlMode();
+  });
+  document.body.appendChild(ctrlModeBtn);
+
+  const compassBtn = document.createElement('button');
+  compassBtn.id = 'compassBtn';
+  compassBtn.type = 'button';
+  compassBtn.className = 'icon-box labelled';
+  compassBtn.setAttribute('aria-label', 'reset view north-up');
+  compassBtn.title = 'North-up top-down';
+  compassBtn.innerHTML =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2.1 5.4-5.4 2.1 2.1-5.4Z"/></svg>' +
+    '<span class="btn-label">North</span>';
+  compassBtn.addEventListener('click', () => {
+    const e = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+    const dyaw = ((0 - e.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI; // shortest path
+    viewAnim = {
+      t0: performance.now(), dur: 500,
+      yaw0: e.y, dyaw,
+      pitch0: e.x, dpitch: (-Math.PI / 2 + 0.02) - e.x, // top-down
+    };
+  });
+  document.body.appendChild(compassBtn);
+
+  function applyControlMode() {
+    const gestures = mobileControlMode === 'gesture';
+    if (gestures) gesture.enable(); else gesture.disable();
+    leftStick.el.classList.toggle('hidden', gestures);
+    rightStick.el.classList.toggle('hidden', gestures);
+    altBox.classList.toggle('hidden', gestures);
+    compassBtn.classList.toggle('hidden', !gestures);
+    // zero the legacy axes so no stick input leaks across the switch
+    fly.axes.fwd = fly.axes.strafe = fly.axes.lift = fly.axes.yaw = fly.axes.pitch = 0;
+    // the button's face is the mode it switches TO
+    ctrlModeBtn.innerHTML = (gestures ? ICONS.sticks : ICONS.gestures) +
+      `<span class="btn-label">${gestures ? 'Sticks' : 'Gestures'}</span>`;
+    ctrlModeBtn.setAttribute('aria-label', gestures ? 'switch to joystick controls' : 'switch to gesture controls');
+    ctrlModeBtn.title = gestures ? 'Joystick controls' : 'Gesture controls';
+  }
+  applyControlMode(); // default: GESTURE_MAP
   exag.el.style.transform = 'none';
 }
 
@@ -373,6 +449,16 @@ renderer.setAnimationLoop((t) => {
     controls.target.lerpVectors(glide.fromTarget, glide.toTarget, s);
     if (k >= 1) glide = null;
   }
+  if (viewAnim) {
+    // compass reset: interpolate yaw (shortest path to north) and pitch to
+    // top-down — position and altitude are left untouched
+    const k = Math.min(1, (performance.now() - viewAnim.t0) / viewAnim.dur);
+    const s = k < 0.5 ? 2 * k * k : 1 - ((-2 * k + 2) ** 2) / 2; // ease-in-out quad
+    camera.rotation.order = 'YXZ';
+    camera.rotation.set(viewAnim.pitch0 + viewAnim.dpitch * s, viewAnim.yaw0 + viewAnim.dyaw * s, 0);
+    if (k >= 1) viewAnim = null;
+  }
+  if (gesture) gesture.update(dt);
   if (t - lastChunkUpdate > 400) {
     lastChunkUpdate = t;
     manager.update(camera, controls.target);
