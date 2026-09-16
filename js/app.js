@@ -180,10 +180,38 @@ if (!isTouch) {
   }
   document.body.appendChild(altBox);
 
-  // lift the centered bottom column clear of the sticks
-  document.getElementById('bottomCol').style.bottom = 'calc(205px + env(safe-area-inset-bottom))';
-  // anchor the exaggeration thermometer to the top-right, clear of the stick
-  exag.el.style.top = '6rem';
+  // anchor the exaggeration thermometer to the top-right, clear of the
+  // sticks and below the location bar + navbar stack
+  exag.el.style.top = '7rem';
+
+  // the location line doubles as the search bar: move the search input +
+  // dropdown into the pill (before mountSearch binds them — listeners are
+  // attached to the elements, which survive the move), and toggle between
+  // label mode and typing mode
+  const loc = document.getElementById('locationStatus');
+  const searchInput = document.getElementById('searchInput');
+  const searchResults = document.getElementById('searchResults');
+  const locSearchBtn = document.getElementById('locSearchBtn');
+  searchInput.className =
+    'grow min-w-0 bg-transparent outline-none text-base text-ink placeholder:text-muted';
+  loc.insertBefore(searchInput, locSearchBtn);
+  loc.appendChild(searchResults);
+  const startSearch = () => {
+    loc.classList.add('searching');
+    searchInput.focus();
+  };
+  const endSearch = () => {
+    loc.classList.remove('searching');
+    searchResults.innerHTML = '';
+  };
+  locSearchBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    startSearch();
+  });
+  loc.addEventListener('click', () => {
+    if (!loc.classList.contains('searching')) startSearch();
+  });
+  searchInput.addEventListener('focusout', endSearch);
   exag.el.style.transform = 'none';
 }
 

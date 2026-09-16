@@ -162,6 +162,76 @@
     /* state classes toggled from JS */
     #locationStatus.visible { opacity: 1; pointer-events: auto; }
     #gemsPanel.open { display: block; }
+
+    /* location bar — two layouts by input capability:
+       desktop (fine pointer): pill + share pinned to the bottom, as always;
+       touch (joysticks present): a centered line at the very top with the
+       share button directly above the random button, where thumbs aren't */
+    #locBar {
+      position: fixed;
+      bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+      left: 50%; transform: translateX(-50%);
+      z-index: 19;
+      width: min(80vw, 340px);
+    }
+    #locationStatus {
+      min-height: 42px;
+      padding-top: 6px; padding-bottom: 6px;
+      border-radius: 9999px;
+      justify-content: flex-start;
+      text-align: left;
+    }
+    /* desktop share button: plain icon, matching the old bottom row */
+    #shareBtn .btn-label { display: none; }
+    #shareBtn svg { width: 20px; height: 20px; }
+    /* search affordance in the location pill is touch-only */
+    #locSearchBtn { display: none; }
+    /* desktop defaults (must precede the coarse overrides below) */
+    #navBar { top: 12px; }
+    #gemsPanel { top: calc(62px + env(safe-area-inset-top, 0px)); }
+
+    @media (pointer: coarse) {
+      #locBar {
+        bottom: auto;
+        top: calc(env(safe-area-inset-top, 0px) + 2px);
+        left: 62px; right: 12px;
+        transform: none;
+        width: auto;
+        z-index: 21; /* the search dropdown hangs over the button stack */
+      }
+      #locationStatus {
+        min-height: 42px; /* same height as the icon buttons beside it */
+        padding-top: 4px; padding-bottom: 4px;
+        border-radius: 16px;
+        justify-content: center;
+        text-align: center;
+        position: relative;
+        opacity: 1;           /* the line doubles as the search bar — always visible */
+        pointer-events: auto;
+      }
+      #shareBtn .btn-label { display: block; }
+      #shareBtn svg { width: 15px; height: 15px; }
+      #navBar {
+        top: calc(env(safe-area-inset-top, 0px) + 54px);
+        /* narrow right-hand stack: Random above Sun, under Share */
+        left: auto; right: 12px; transform: none; width: auto;
+        flex-direction: column;
+      }
+      #searchBar { display: none; }
+      #sunBtn { order: 2; }
+      /* gems sits on the left at the same height as the top line + Share */
+      #gemsBtn { top: calc(env(safe-area-inset-top, 0px) + 2px); }
+      #gemsPanel { top: calc(112px + env(safe-area-inset-top, 0px)); }
+
+      /* the location line is the search bar: tap the icon (or the line) to type */
+      #locSearchBtn { display: flex; }
+      #locSearchBtn svg { width: 16px; height: 16px; }
+      #searchInput { display: none; }
+      #locationStatus.searching #searchInput { display: block; }
+      #locationStatus.searching #locationText,
+      #locationStatus.searching .loc-pin { display: none; }
+    }
+
     #gemsPanel.unlocked .gem-locked { display: none; }
     #gemsPanel.unlocked #gemsList { display: block; }
     #diceBtn.rolling { animation: diceSpin 0.55s ease infinite; pointer-events: none; }
@@ -194,17 +264,13 @@
     }
     .gem-buy:active { transform: scale(0.98); }
 
-    /* gems button: constant rainbow ring */
+    /* gems button: rainbow as a masked RING only — no filled glow layer
+       behind the translucent glass face (that tinted the whole button and
+       lit up the corners as it rotated) */
     @property --gem-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
-    #gemsBtn { border: none; overflow: visible; }
-    #gemsBtn::before {
-      content: ''; position: absolute; inset: -3px; border-radius: 17px;
-      background: conic-gradient(from var(--gem-angle), #ff5964, #ffd166, #7ee081, #7ec8e3, #b48ef7, #ff5964);
-      filter: blur(4px); opacity: 0.85;
-      animation: gem-spin 3s linear infinite; pointer-events: none;
-    }
+    #gemsBtn { border: none; overflow: hidden; }
     #gemsBtn::after {
-      content: ''; position: absolute; inset: 0; border-radius: 14px; padding: 1.5px;
+      content: ''; position: absolute; inset: 0; border-radius: 16px; padding: 2px;
       background: conic-gradient(from var(--gem-angle), #ff5964, #ffd166, #7ee081, #7ec8e3, #b48ef7, #ff5964);
       -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
       -webkit-mask-composite: xor;
@@ -237,7 +303,7 @@
        immersive map view (transient overlays — teleport, landing, cookie —
        still show; rotating back restores everything) */
     @media (orientation: landscape) and (pointer: coarse) and (max-height: 500px) {
-      #navBar, #gemsBtn, #gemsPanel, #bottomCol, #keyHelp,
+      #navBar, #locBar, #gemsBtn, #gemsPanel, #keyHelp,
       #exagCol, #altBox { display: none !important; }
     }
 
@@ -263,7 +329,21 @@
   </script>
 </head>
 <body class="h-dvh overflow-hidden bg-night text-ink font-sans text-base antialiased">
-  <div id="navBar" class="fixed top-3 left-1/2 -translate-x-1/2 z-20 flex items-stretch gap-2 w-[min(60vw,420px)] max-[1100px]:left-[62px] max-[1100px]:right-3 max-[1100px]:translate-x-0 max-[1100px]:w-auto">
+  <div id="locBar" class="flex items-start gap-2">
+    <div id="locationStatus" class="glass grow min-w-0 flex items-center gap-[7px] px-3.5 text-[0.85em] leading-snug text-ink opacity-0 pointer-events-none transition-opacity duration-[400ms] [overflow-wrap:anywhere]">
+      <svg class="loc-pin w-3.5 h-3.5 shrink-0 text-ink" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+      <span id="locationText"></span>
+      <button id="locSearchBtn" class="shrink-0 text-ink" aria-label="search a place" title="Search a place">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </button>
+    </div>
+    <button id="shareBtn" class="icon-box labelled shrink-0" aria-label="share this view" title="Share this view">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      <span class="btn-label">Share</span>
+    </button>
+  </div>
+
+  <div id="navBar" class="fixed left-1/2 -translate-x-1/2 z-20 flex items-stretch gap-2 w-[min(60vw,420px)] max-[1100px]:left-[62px] max-[1100px]:right-3 max-[1100px]:translate-x-0 max-[1100px]:w-auto">
     <button id="sunBtn" class="icon-box labelled shrink-0" aria-label="always daytime" title="Always daytime">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
       <span class="btn-label">Sun</span>
@@ -279,7 +359,7 @@
     </button>
   </div>
 
-  <div id="gemsPanel" class="glass fixed top-[calc(62px+env(safe-area-inset-top))] left-3 z-[21] hidden w-[min(60vw,420px)] max-h-[min(55vh,460px)] overflow-y-auto rounded-3xl max-[1100px]:left-[62px] max-[1100px]:right-3 max-[1100px]:w-auto max-[1100px]:max-h-[48vh]">
+  <div id="gemsPanel" class="glass fixed left-3 z-[21] hidden w-[min(60vw,420px)] max-h-[min(55vh,460px)] overflow-y-auto rounded-3xl max-[1100px]:left-[62px] max-[1100px]:right-3 max-[1100px]:w-auto max-[1100px]:max-h-[48vh]">
     <div class="px-3.5 pt-2.5 pb-1.5 font-semibold">💎 Location Gems</div>
 
     <!-- locked: buy + paste the emailed activation code -->
@@ -318,19 +398,6 @@
     <!-- unlocked: the gem list -->
     <div id="gemsList" class="hidden"></div>
     <p id="gemsStatus" class="m-0 px-3.5 pb-2.5 pt-1 text-xs text-muted min-h-[12px]"></p>
-  </div>
-
-  <div id="bottomCol" class="fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-[19] flex flex-col gap-2 w-[min(80vw,340px)] max-[1100px]:bottom-[calc(52px+env(safe-area-inset-bottom))]">
-    <div id="locRow" class="flex gap-2">
-      <div id="locationStatus" class="glass flex grow min-w-0 items-center gap-[7px] min-h-[42px] rounded-full px-3.5 py-1.5 text-[0.85em] leading-snug text-left text-ink opacity-0 pointer-events-none transition-opacity duration-[400ms] [overflow-wrap:anywhere]">
-        <svg class="loc-pin w-3.5 h-3.5 shrink-0 text-ink" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-        <span id="locationText"></span>
-      </div>
-      <button id="shareBtn" class="icon-box shrink-0" aria-label="share this view" title="Share this view">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-      </button>
-    </div>
-
   </div>
 
   <button id="gemsBtn" class="icon-box labelled fixed top-3 left-3 z-20" aria-label="location gems" title="Location Gems">
