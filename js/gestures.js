@@ -15,7 +15,7 @@ import * as THREE from 'three';
 const PITCH_MIN = -Math.PI / 2 + 0.02;    // top-down
 const PITCH_MAX = -10 * Math.PI / 180;   // near-horizon
 const TWIST_DEADZONE = 10 * Math.PI / 180; // rotational deadzone — high so zooming never clips into rotation
-const MIN_TWIST_SEPARATION = 90; // px — rotation needs this much gap between fingers; closer = pitch/zoom only
+const CLASSIFY_MOVE = 10;  // px per finger before the two-finger mode is decided
 
 // --- feel tuning ------------------------------------------------------------
 const SENS_PAN = 0.5;      // one full screen of drag ≈ half the visible ground
@@ -90,7 +90,7 @@ export class GestureMap {
     if (!p) return;
     p.x = e.clientX;
     p.y = e.clientY;
-    if (this.pointers.size === 2) this._trackTwist();
+    if (this.pointers.size === 2 && this._classifyTwo() === 'zoom') this._trackTwist();
   }
 
   _onUp(e) {
@@ -129,6 +129,8 @@ export class GestureMap {
       const [a, b] = [...this.pointers.values()];
       this.g = {
         mode: 'two',
+        phase: 'undecided',    // classified on first real movement: 'pitch' | 'zoom'
+        start1: { x: a.x, y: a.y }, start2: { x: b.x, y: b.y }, // per-finger starts for classification
         dist0: Math.max(10, Math.hypot(b.x - a.x, b.y - a.y)),
         alt0: cam.position.y,
         angle0: Math.atan2(b.y - a.y, b.x - a.x),
@@ -145,22 +147,41 @@ export class GestureMap {
     }
   }
 
-  /** accumulate twist since gesture start; unlock past the deadzone — and
-   *  only when the fingers are far enough apart: a tight pair is a pitch
-   *  paddle, not a dial (twisting two nearby fingers is mostly noise) */
+  /** decide the two-finger mode from how the gesture BEGINS, then lock it
+   *  until release: both fingers moving vertically together = pitch mode
+   *  (pinch/rotate disabled); anything else = zoom mode (pinch + twist,
+   *  pitch disabled). Mutual exclusion kills the gesture clashes. */
+  _classifyTwo() {
+    const g = this.g;
+    if (!g || g.mode !== 'two' || g.phase !== 'undecided') return g ? g.phase : null;
+    const [a, b] = [...this.pointers.values()];
+    const d1x = a.x - g.start1.x, d1y = a.y - g.start1.y;
+    const d2x = b.x - g.start2.x, d2y = b.y - g.start2.y;
+    if (Math.hypot(d1x, d1y) < CLASSIFY_MOVE || Math.hypot(d2x, d2y) < CLASSIFY_MOVE) {
+      return 'undecided'; // both fingers must have moved before the verdict means anything
+    }
+    const vertical =
+      Math.abs(d1y) > Math.abs(d1x) && Math.abs(d2y) > Math.abs(d2x) && d1y * d2y > 0;
+    g.phase = vertical ? 'pitch' : 'zoom';
+    if (g.phase === 'zoom') {
+      // re-baseline the pinch/twist measurements at the decision point — the
+      // deciding movement was vertical, so no distance/angle jump occurs
+      g.dist0 = Math.max(10, Math.hypot(b.x - a.x, b.y - a.y));
+      g.angle0 = Math.atan2(b.y - a.y, b.x - a.x);
+      this._euler.setFromQuaternion(this.camera.quaternion);
+      g.yaw0 = this._euler.y;
+      g.twistTotal = 0;
+      g.targetYaw = g.yaw0;
+    }
+    return g.phase;
+  }
+
+  /** accumulate twist since gesture start; unlock past the deadzone */
   _trackTwist() {
     const g = this.g;
-    if (!g || g.mode !== 'two') return;
+    if (!g || g.mode !== 'two' || g.phase !== 'zoom') return;
     const [a, b] = [...this.pointers.values()];
-    const dist = Math.hypot(b.x - a.x, b.y - a.y);
     const angle = Math.atan2(b.y - a.y, b.x - a.x);
-    if (dist < MIN_TWIST_SEPARATION) {
-      if (!g.twistUnlocked) {
-        g.angle0 = angle; // measure afresh once they spread apart
-        g.twistTotal = 0;
-      }
-      return; // too close to rotate: pitch / zoom only
-    }
     if (!g.twistUnlocked) {
       g.twistTotal += wrapPi(angle - g.angle0 - g.twistTotal);
       if (Math.abs(g.twistTotal) >= TWIST_DEADZONE) g.twistUnlocked = true;
@@ -205,9 +226,24 @@ export class GestureMap {
       g.appliedZ += stepZ;
       this._sample(stepX, stepZ, 0, 0, 0);
     } else if (g.mode === 'two' && this.pointers.size === 2) {
+      if (g.phase === 'undecided') return; // wait for the gesture to declare itself
       const [a, b] = [...this.pointers.values()];
       const dist = Math.max(10, Math.hypot(b.x - a.x, b.y - a.y));
       const cy = (a.y + b.y) / 2;
+
+      if (g.phase === 'pitch') {
+        // PITCH MODE (locked at gesture start by the vertical finger
+        // vectors): only the tilt changes; pinch and rotate are ignored
+        // until release. Dragging down tilts toward top-down.
+        const targetPitch = clamp(g.pitch0 - (cy - g.centroidY0) * PITCH_SENS, PITCH_MIN, PITCH_MAX);
+        let stepPitch = clamp((targetPitch - g.pitch0 - g.appliedPitch) * s, -PITCH_RATE, PITCH_RATE);
+        if (stepPitch) this._rotate(stepPitch, 0);
+        g.appliedPitch += stepPitch;
+        this._sample(0, 0, 0, stepPitch, 0);
+        return;
+      }
+
+      // ZOOM MODE (locked at gesture start): pinch + twist only, no pitch.
 
       // unified pivot: the height-scaled point ahead — twist sets our ANGLE
       // around it, pinch sets our DISTANCE to it. One shared pivot means the
@@ -246,16 +282,13 @@ export class GestureMap {
       if (cam.position.y < minAlt) cam.position.y = minAlt;
       if (cam.position.y > MAX_ALT) cam.position.y = MAX_ALT;
 
-      // --- parallel vertical swipe -> pitch (toward horizon when dragging down) ---
-      const targetPitch = clamp(g.pitch0 + (cy - g.centroidY0) * PITCH_SENS, PITCH_MIN, PITCH_MAX);
-      let stepPitch = clamp((targetPitch - g.pitch0 - g.appliedPitch) * s, -PITCH_RATE, PITCH_RATE);
+      // --- parallel vertical drift is ignored in zoom mode (pitch is a
+      //     separate gesture, locked at gesture start) ---
       if (stepYaw) this._rotate(0, stepYaw);
-      if (stepPitch) this._rotate(stepPitch, 0);
       g.appliedYaw += stepYaw;
-      g.appliedPitch += stepPitch;
 
       // momentum: what the camera actually did this frame (orbit + dolly)
-      this._sample(cam.position.x - px0, cam.position.z - pz0, cam.position.y - py0, stepPitch, stepYaw);
+      this._sample(cam.position.x - px0, cam.position.z - pz0, cam.position.y - py0, 0, stepYaw);
     }
   }
 
