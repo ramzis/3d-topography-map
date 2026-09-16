@@ -49,6 +49,7 @@ export class GestureMap {
     this.samples = [];        // recent APPLIED per-frame deltas, for exit velocity
     this.vel = { x: 0, z: 0, alt: 0, pitch: 0, yaw: 0 };
     this.orbitPivot = null;   // inertia: the point yaw momentum keeps circling
+    this.maxAltitude = MAX_ALT;
     this.enabled = false;
     this._euler = new THREE.Euler(0, 0, 0, 'YXZ');
 
@@ -272,7 +273,9 @@ export class GestureMap {
       const f = clamp(dist / g.dist0, 0.15, 6);
       let ux = cam.position.x - pv.x, uy = cam.position.y - pv.y, uz = cam.position.z - pv.z;
       const curR = Math.hypot(ux, uy, uz) || 1e-6;
-      const targetR = clamp(g.startR / f, 3, 700);
+      let targetR = clamp(g.startR / f, 3, 700);
+      const dirY = uy / curR;
+      if (dirY > 1e-4) targetR = Math.min(targetR, (this.maxAltitude - pv.y) / dirY);
       const newR = curR + clamp((targetR - curR) * s, -ZOOM_RATE * curR, ZOOM_RATE * curR);
       const k = newR / curR;
       cam.position.set(pv.x + ux * k, pv.y + uy * k, pv.z + uz * k);
@@ -280,7 +283,7 @@ export class GestureMap {
       // ground / ceiling clamps
       const minAlt = this._minAltitude();
       if (cam.position.y < minAlt) cam.position.y = minAlt;
-      if (cam.position.y > MAX_ALT) cam.position.y = MAX_ALT;
+      if (cam.position.y > this.maxAltitude) cam.position.y = this.maxAltitude;
 
       // --- parallel vertical drift is ignored in zoom mode (pitch is a
       //     separate gesture, locked at gesture start) ---
@@ -303,7 +306,7 @@ export class GestureMap {
     } else { v.x = 0; v.z = 0; }
 
     if (Math.abs(v.alt) > VEL_EPS) {
-      this.camera.position.y = clamp(this.camera.position.y + v.alt * dt, this._minAltitude(), MAX_ALT);
+      this.camera.position.y = clamp(this.camera.position.y + v.alt * dt, this._minAltitude(), this.maxAltitude);
       v.alt *= decay;
     } else { v.alt = 0; }
 
@@ -329,6 +332,10 @@ export class GestureMap {
   _minAltitude() {
     const gy = this.getGroundY(this.camera.position.x, this.camera.position.z);
     return (gy ?? 0) + 3;
+  }
+
+  setMaxAltitude(v) {
+    this.maxAltitude = v ?? MAX_ALT;
   }
 
   _clampGround() {

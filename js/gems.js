@@ -2,7 +2,22 @@ const SUPABASE_URL = 'https://obhxpqdqoszeurgujvex.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_4zhtDgF8IoMpnM_t8o0WrQ_p0XKNFdG';
 const CODE_KEY = 'lg_code';
 
-const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/test_aFa3cxdoK1JbaVPae91kA00';
+let purchasedCache = null;
+export async function hasPurchasedGems() {
+  if (document.getElementById('gemsPanel')?.classList.contains('unlocked')) return true;
+  const code = localStorage.getItem(CODE_KEY);
+  if (!code) return false;
+  if (purchasedCache !== null) return purchasedCache;
+  try {
+    await rpc('get_location_gems', { p_code: code });
+    purchasedCache = true;
+  } catch {
+    purchasedCache = false;
+  }
+  return purchasedCache;
+}
+
+export const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/9B6eV63wJ9m22yc7OE3sI00';
 
 async function rpc(name, args) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {

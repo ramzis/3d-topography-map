@@ -10,6 +10,7 @@ import { PlacesLayer } from './places.js';
 import { initAnalytics } from './analytics.js';
 import { mountSearch } from './search.js';
 import { mountGems } from './gems.js';
+import { mountGuesser } from './guesser.js';
 import { mountLanding } from './landing.js';
 import { mountLocationStatus } from './location.js';
 import { fetchStats } from './geo.js';
@@ -47,6 +48,7 @@ scene.background = new THREE.Color(0x10141a);
 scene.fog = new THREE.Fog(0x10141a, 900, 2600);
 
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 6000);
+window.__topoCam = camera;
 // start low over Vilnius city center, looking across the city
 camera.position.set(0, 40, 30);
 camera.lookAt(0, 18, -60);
@@ -381,9 +383,14 @@ mountGems({
   onSelect: (gem) => teleportTo(gem, { camera, controls, fly, manager }),
 });
 
+const guesser = mountGuesser({
+  onTeleport: (place, label) => teleportTo(place, { camera, controls, fly, manager }, { label }),
+});
+
 // --- dice roll: teleport to a random land spot ----------------------------------
 $('diceBtn').addEventListener('click', async () => {
   const btn = $('diceBtn');
+  if (guesser.isPlaying()) return;
   if (btn.classList.contains('rolling')) return;
   btn.classList.add('rolling');
   try {
@@ -420,6 +427,7 @@ $('shareBtn').addEventListener('click', async () => {
   }, 2000);
 });
 
+const GAME_MAX_ALT = 210;
 let lastChunkUpdate = 0;
 let lastFrameT = 0;
 let lastMemT = 0;
@@ -459,6 +467,9 @@ renderer.setAnimationLoop((t) => {
     if (k >= 1) viewAnim = null;
   }
   if (gesture) gesture.update(dt);
+  const playing = guesser.isPlaying();
+  if (playing && camera.position.y > GAME_MAX_ALT) camera.position.y = GAME_MAX_ALT;
+  gesture?.setMaxAltitude(playing ? GAME_MAX_ALT : null);
   if (t - lastChunkUpdate > 400) {
     lastChunkUpdate = t;
     manager.update(camera, controls.target);
@@ -479,7 +490,7 @@ renderer.setAnimationLoop((t) => {
     camera.far = neededFar;
     camera.updateProjectionMatrix();
   }
-  saveState(t);
+  if (!guesser.isPlaying()) saveState(t);
   updateLocationStatus(t);
 
   // memory breadcrumb every 10s: a tab that gets OOM-killed by the browser

@@ -221,6 +221,7 @@
       #sunBtn { order: 2; }
       /* gems sits on the left at the same height as the top line + Share */
       #gemsBtn { top: calc(env(safe-area-inset-top, 0px) + 2px); }
+      #playGuesserBtn { top: calc(env(safe-area-inset-top, 0px) + 154px); left: auto; right: 12px; }
       /* left button stack under gems: control-mode toggle, then compass
          (these elements are created by JS on touch devices only) */
       #ctrlModeBtn { position: fixed; left: 12px; top: calc(env(safe-area-inset-top, 0px) + 54px); z-index: 20; }
@@ -303,11 +304,36 @@
       animation: gem-spin 3s linear infinite; pointer-events: none;
     }
 
+    .modal-overlay { @apply fixed inset-0 z-[60] flex items-center justify-center bg-[rgba(10,13,18,0.55)] backdrop-blur-md; }
+    .modal-card { @apply glass relative rounded-3xl p-5 w-[min(92vw,420px)] flex flex-col gap-3 text-ink; }
+    .modal-card.tall { @apply w-[min(94vw,760px)] h-[min(82vh,640px)]; }
+    .modal-title { @apply text-lg font-semibold text-center; }
+    .modal-text { @apply text-sm leading-relaxed; }
+    .modal-text.big { @apply text-base text-center my-2; }
+    .modal-row { @apply flex items-center gap-2 justify-end flex-wrap; }
+    .modal-x { @apply absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full text-muted hover:text-ink hover:bg-white/10 transition-colors; }
+    .modal-x svg { @apply w-4 h-4; }
+    .modal-btn { @apply glass rounded-full px-4 py-2 text-sm text-ink transition-all duration-100 cursor-pointer select-none active:scale-95 hover:bg-white/25 disabled:opacity-40 disabled:pointer-events-none; }
+    .modal-btn.primary { @apply border-white/40 bg-white/20 font-semibold; }
+    .slippy-map { @apply relative overflow-hidden rounded-2xl grow bg-[#0d1117] cursor-grab touch-none; }
+    .slippy-map img { position: absolute; width: 256px; height: 256px; pointer-events: none; user-select: none; -webkit-user-drag: none; image-rendering: crisp-edges; }
+    .slippy-marker { position: absolute; transform: translate(-50%, -90%); z-index: 5; pointer-events: none; font-size: 26px; line-height: 1; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); }
+    .slippy-zoom { @apply absolute top-2.5 right-2.5 z-[2] flex flex-col gap-1.5; }
+    .slippy-zoom .icon-box { @apply w-9 h-9 text-base bg-[rgba(16,20,26,0.75)]; }
+    #guesserBar { @apply glass grow min-w-0 flex items-center justify-center gap-2 min-h-[38px] rounded-2xl px-2 py-1 text-[0.85em] text-ink; }
+    #guesserBar.hidden { display: none; }
+    #guesserCount { @apply whitespace-nowrap font-semibold; }
+    .guesser-pill { @apply glass rounded-full px-3.5 py-1.5 text-[0.9em] whitespace-nowrap text-ink font-semibold transition-all duration-100 cursor-pointer select-none active:scale-95 hover:bg-white/25 inline-flex items-center gap-1.5; }
+    .guesser-pill svg { @apply w-4 h-4 shrink-0; }
+
+    .guesser-pill.selected { @apply border-[#7ee081]/70 bg-[rgba(126,224,129,0.18)] text-[#b7f0be]; }
+    #guesserBar .icon-box.selected { @apply border-[#7ee081]/70 text-[#9be8a8]; }
+
     /* zen mode: a phone flipped to landscape hides all the UI for a clean
        immersive map view (transient overlays — teleport, landing, cookie —
        still show; rotating back restores everything) */
     @media (orientation: landscape) and (pointer: coarse) and (max-height: 500px) {
-      #navBar, #locBar, #gemsBtn, #gemsPanel, #keyHelp,
+      #navBar, #locBar, #gemsBtn, #gemsPanel, #keyHelp, #playGuesserBtn,
       #exagCol, #altBox, #ctrlModeBtn, #compassBtn { display: none !important; }
     }
 
@@ -380,12 +406,13 @@
       </div>
 
       <p class="gem-note">Unlock 100 hand-picked wonders of the world —
-        one tap each to teleport there.</p>
+        one tap each to teleport there — plus <strong>Location Guesser</strong>,
+        the 10-round 3D location guessing game.</p>
 
       <p class="gem-note">Try a few on us:</p>
       <div id="gemSamples"></div>
 
-      <button id="gemBuyBtn" class="gem-buy">💎 Buy Location Gems</button>
+      <button id="gemBuyBtn" class="gem-buy">💎 Buy Location Gems · €1</button>
 
       <div id="gemBlur">
         <div class="gem-item blurred" tabindex="-1"><strong>Velvet Sand Dunes</strong></div>
@@ -407,6 +434,11 @@
   <button id="gemsBtn" class="icon-box labelled fixed top-3 left-3 z-20" aria-label="location gems" title="Location Gems">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>
     <span class="btn-label">Gems</span>
+  </button>
+
+  <button id="playGuesserBtn" class="icon-box labelled fixed top-3 left-[62px] z-20" aria-label="play Location Guesser" title="Play Location Guesser">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/><path d="M12 8.5a1.5 1.5 0 0 1 1.5 1.5M12 6.5a3.5 3.5 0 0 1 3.5 3.5"/></svg>
+    <span class="btn-label">Play</span>
   </button>
 
   <div id="keyHelp" class="glass fixed top-3 right-3 z-20 rounded-3xl p-4">
