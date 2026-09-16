@@ -9,7 +9,7 @@ import { VirtualStick } from './joystick.js';
 import { PlacesLayer } from './places.js';
 import { initAnalytics } from './analytics.js';
 import { mountSearch } from './search.js';
-import { mountGems } from './gems.js';
+import { mountGems } from './gems2.js';
 import { mountGuesser } from './guesser.js';
 import { mountLanding } from './landing.js';
 import { mountLocationStatus } from './location.js';

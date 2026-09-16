@@ -76,7 +76,7 @@ export function mountGems({ onSelect }) {
     if (STRIPE_PAYMENT_LINK) {
       window.open(STRIPE_PAYMENT_LINK, '_blank', 'noopener');
     } else {
-      setStatus('Purchases are not set up yet — a Stripe payment link is needed in js/gems.js', true);
+      setStatus('Purchases are not set up yet — a Stripe payment link is needed in js/gems2.js', true);
     }
   });
 

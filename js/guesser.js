@@ -1,5 +1,5 @@
 import { rollRandomLandPlace } from './dice.js';
-import { STRIPE_PAYMENT_LINK, hasPurchasedGems } from './gems.js';
+import { STRIPE_PAYMENT_LINK, hasPurchasedGems } from './gems2.js';
 
 const ROUNDS = 10;
 const QUAD_RETRIES = 8;
