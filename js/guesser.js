@@ -7,6 +7,16 @@ const SCORE_MAX = 5000;
 const SCORE_DECAY_KM = 1500;
 const TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile';
 const TILE_PX = 256;
+const MEDIA = [
+  'media/banner-rio.jpg',
+  'media/banner-cape-town.jpg',
+  'media/banner-santorini.jpg',
+  'media/banner-everest.jpg',
+  'media/square-rio.jpg',
+  'media/square-cape-town.jpg',
+  'media/square-santorini.jpg',
+  'media/square-everest.jpg',
+];
 
 const D2R = Math.PI / 180;
 const R_EARTH = 6371;
@@ -29,7 +39,7 @@ export function mountGuesser({ onTeleport }) {
   }
 
   let checking = false;
-  playBtn.addEventListener('click', async () => {
+  async function requestStart() {
     if (game) { confirmQuit(); return; }
     if (checking) return;
     checking = true;
@@ -39,7 +49,9 @@ export function mountGuesser({ onTeleport }) {
     } finally {
       checking = false;
     }
-  });
+  }
+
+  playBtn.addEventListener('click', requestStart);
 
   function quadrantOf(lat, lon) {
     const band = Math.min(3, Math.max(0, Math.floor((lat + 90) / 45)));
@@ -150,6 +162,11 @@ export function mountGuesser({ onTeleport }) {
 
   function showLockedPrompt() {
     const { card, close } = baseModal();
+    const img = document.createElement('img');
+    img.className = 'modal-media';
+    img.alt = 'Location Guesser';
+    img.src = MEDIA[Math.floor(Math.random() * MEDIA.length)];
+    card.appendChild(img);
     card.insertAdjacentHTML('beforeend',
       '<div class="modal-title">💎 Location Guesser</div>' +
       '<p class="modal-text">Location Guesser comes with <strong>Location Gems</strong> — ' +
@@ -157,11 +174,11 @@ export function mountGuesser({ onTeleport }) {
     const row = document.createElement('div');
     row.className = 'modal-row';
     const later = document.createElement('button');
-    later.className = 'modal-btn';
-    later.textContent = 'Maybe later';
+    later.className = 'modal-btn modal-btn-danger';
+    later.textContent = 'Explore the map';
     later.addEventListener('click', close);
     const buy = document.createElement('button');
-    buy.className = 'modal-btn primary';
+    buy.className = 'modal-btn modal-btn-rainbow';
     buy.textContent = '💎 Buy Location Gems · €1';
     buy.addEventListener('click', () => {
       if (STRIPE_PAYMENT_LINK) window.open(STRIPE_PAYMENT_LINK, '_blank', 'noopener');
@@ -333,7 +350,7 @@ export function mountGuesser({ onTeleport }) {
     obs.observe(document.body, { childList: true, subtree: true });
   }
 
-  return { startGame, endGame, isPlaying: () => !!game };
+  return { startGame, endGame, requestStart, isPlaying: () => !!game };
 }
 
 function scoreFor(km) {

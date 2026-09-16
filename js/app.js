@@ -375,7 +375,13 @@ mountSearch({
 // landing showcase: card taps teleport there, Explore just closes it
 // (the app has been booting behind the overlay the whole time)
 mountLanding({
-  onTeleport: (place) => teleportTo(place, { camera, controls, fly, manager }),
+  onTeleport: (place) => {
+    exag.set(1);
+    manager.setExaggeration(exag.get());
+    wards.updateExaggeration(exag.get());
+    teleportTo(place, { camera, controls, fly, manager });
+  },
+  onPlayGuesser: () => guesser.requestStart(),
 });
 
 // --- location gems: paid teleport list -----------------------------------------
@@ -386,6 +392,32 @@ mountGems({
 const guesser = mountGuesser({
   onTeleport: (place, label) => teleportTo(place, { camera, controls, fly, manager }, { label }),
 });
+
+const actOnHash = () => {
+  if (location.hash === '#play') guesser.requestStart();
+  if (location.hash === '#play' || location.hash === '#explore') {
+    history.replaceState(null, '', location.pathname);
+  }
+};
+addEventListener('hashchange', actOnHash);
+actOnHash();
+
+const gemCta = document.getElementById('gemGameCta');
+const gemCtaImg = document.getElementById('gemGameCtaImg');
+if (gemCta && gemCtaImg) {
+  const CTAS = [
+    'media/cta-rio.jpg',
+    'media/cta-cape-town.jpg',
+    'media/cta-santorini.jpg',
+    'media/cta-everest.jpg',
+  ];
+  gemCtaImg.src = CTAS[Math.floor(Math.random() * CTAS.length)];
+  gemCta.addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('gemsPanel')?.classList.remove('open');
+    guesser.requestStart();
+  });
+}
 
 // --- dice roll: teleport to a random land spot ----------------------------------
 $('diceBtn').addEventListener('click', async () => {

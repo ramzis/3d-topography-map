@@ -1,8 +1,6 @@
-// Landing page overlay: a first-visit showcase of ten places. Tapping a
-// card teleports there and closes the overlay; after any dismissal the
-// overlay stays hidden until tomorrow (local midnight).
-
-const DISMISS_KEY = 'landing_dismissed_until';
+// Landing page overlay: a showcase of ten places, shown only on a direct
+// visit — a URL with a location (?lat=…&lon=…) or an activation hash skips
+// it and goes straight to the map. Tapping a card teleports there.
 
 const PLACES = [
   { slug: 'vilnius', name: 'Vilnius', tagline: 'Where it all begins', home: true,
@@ -11,10 +9,10 @@ const PLACES = [
     lat: 36.0544, lon: -112.1401, desc: 'Layered rock carved by the Colorado river.' },
   { slug: 'everest', name: 'Mount Everest', tagline: 'The roof of the world',
     lat: 27.9881, lon: 86.9250, desc: 'The highest point on Earth, exaggerated in full relief.' },
-  { slug: 'matterhorn', name: 'Matterhorn', tagline: 'The pyramid of the Alps',
-    lat: 45.9763, lon: 7.6586, desc: 'Switzerland\u2019s iconic rock spire above Zermatt.' },
   { slug: 'santorini', name: 'Santorini', tagline: 'A drowned volcano',
     lat: 36.3932, lon: 25.4615, desc: 'White towns on the rim of a flooded caldera.' },
+  { slug: 'matterhorn', name: 'Matterhorn', tagline: 'The pyramid of the Alps',
+    lat: 45.9763, lon: 7.6586, desc: 'Switzerland\u2019s iconic rock spire above Zermatt.' },
   { slug: 'venice', name: 'Venice', tagline: 'A city floating on water',
     lat: 45.4408, lon: 12.3155, desc: 'Canals, islands and lagoons of the Serenissima.' },
   { slug: 'dubai', name: 'Dubai', tagline: 'An island drawn in sand',
@@ -27,34 +25,44 @@ const PLACES = [
     lat: 64.0784, lon: -16.2306, desc: 'Glacier lagoons on the edge of Europe\u2019s wilderness.' },
 ];
 
-function dismissed() {
-  try {
-    return Number(localStorage.getItem(DISMISS_KEY) || 0) > Date.now();
-  } catch {
-    return false; // storage unavailable (private mode) — just show it
-  }
+function deepLinked() {
+  const p = new URLSearchParams(location.search);
+  const hasLocation = Number.isFinite(parseFloat(p.get('lat'))) &&
+    Number.isFinite(parseFloat(p.get('lon')));
+  const hasActivation = location.hash.startsWith('#activate=');
+  const hasAction = location.hash === '#explore' || location.hash === '#play';
+  return hasLocation || hasActivation || hasAction;
 }
 
-function dismiss() {
-  // don't show again until tomorrow, local midnight
-  const until = new Date();
-  until.setHours(24, 0, 0, 0);
-  try { localStorage.setItem(DISMISS_KEY, String(until.getTime())); } catch { /* private mode */ }
-}
-
-/**
- * Shows the landing overlay unless it was dismissed today.
- * onTeleport(place) is called with { name, lat, lon } when a card is tapped.
- */
-export function mountLanding({ onTeleport, onExplore } = {}) {
+export function mountLanding({ onTeleport, onExplore, onPlayGuesser } = {}) {
   const root = document.getElementById('landing');
-  if (!root || dismissed()) {
+  if (!root || deepLinked()) {
     root?.remove();
     return;
   }
 
+  const BANNERS = [
+    'media/cta-rio.jpg',
+    'media/cta-cape-town.jpg',
+    'media/cta-santorini.jpg',
+    'media/cta-everest.jpg',
+  ];
+  document.getElementById('landingCtaImg').src =
+    BANNERS[Math.floor(Math.random() * BANNERS.length)];
+  const cta = document.getElementById('landingCta');
+  const playCta = (e) => {
+    e.preventDefault();
+    close();
+    onPlayGuesser?.();
+  };
+  cta.addEventListener('click', playCta);
+  cta.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playCta(); }
+  });
+
   const grid = document.getElementById('landingGrid');
-  for (const p of PLACES) {
+  const ctaCell = document.getElementById('landingCta');
+  PLACES.forEach((p, i) => {
     const card = document.createElement('button');
     card.type = 'button';
     card.title = `${p.name} — ${p.desc}`;
@@ -74,14 +82,15 @@ export function mountLanding({ onTeleport, onExplore } = {}) {
       onTeleport?.({ name: p.name, lat: p.lat, lon: p.lon });
     });
     grid.appendChild(card);
-  }
+    if (i === 4) grid.appendChild(ctaCell);
+  });
 
   const close = () => {
-    dismiss();
     root.remove();
   };
 
-  document.getElementById('landingExplore').addEventListener('click', () => {
+  document.getElementById('landingExplore').addEventListener('click', (e) => {
+    e.preventDefault();
     close();
     onExplore?.();
   });

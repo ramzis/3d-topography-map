@@ -46,6 +46,7 @@ export function mountGems({ onSelect }) {
   const codeInput = document.getElementById('gemCodeInput');
   const activateBtn = document.getElementById('gemActivateBtn');
   const statusEl = document.getElementById('gemsStatus');
+  const codeStatusEl = document.getElementById('gemCodeStatus');
   let gems = null; // cached list once fetched
 
   btn.addEventListener('click', () => {
@@ -75,7 +76,7 @@ export function mountGems({ onSelect }) {
     if (STRIPE_PAYMENT_LINK) {
       window.open(STRIPE_PAYMENT_LINK, '_blank', 'noopener');
     } else {
-      setStatus('purchases are not set up yet — a Stripe payment link is needed in js/gems.js', true);
+      setStatus('Purchases are not set up yet — a Stripe payment link is needed in js/gems.js', true);
     }
   });
 
@@ -92,10 +93,10 @@ export function mountGems({ onSelect }) {
         codeInput.value = code;
         applyCode(code);
       } else {
-        setStatus('no activation code found in the clipboard', true);
+        setCodeStatus('No activation code found in the clipboard', true);
       }
     } catch {
-      setStatus('clipboard access denied — paste into the box instead', true);
+      setCodeStatus('Clipboard access denied — paste into the box instead', true);
     }
   });
 
@@ -116,18 +117,18 @@ export function mountGems({ onSelect }) {
   async function applyCode(raw) {
     const code = raw.trim().toLowerCase();
     if (!code) return;
-    setStatus('checking code…');
+    setCodeStatus('Checking code…');
     activateBtn.disabled = true;
     try {
       gems = await rpc('get_location_gems', { p_code: code });
       localStorage.setItem(CODE_KEY, code);
       codeInput.value = '';
-      setStatus('');
+      setCodeStatus('');
       render();
     } catch (err) {
       gems = null;
       render();
-      setStatus('invalid activation code', true);
+      setCodeStatus('Invalid activation code', true);
     } finally {
       activateBtn.disabled = false;
     }
@@ -151,12 +152,17 @@ export function mountGems({ onSelect }) {
     statusEl.classList.toggle('error', error);
   }
 
+  function setCodeStatus(msg, error = false) {
+    codeStatusEl.textContent = msg || '';
+    codeStatusEl.classList.toggle('error', error);
+  }
+
   async function refresh() {
     const code = localStorage.getItem(CODE_KEY);
     if (!code) return; // locked view is static
     if (gems) return render(); // cached
     list.innerHTML = '';
-    setStatus('loading gems…');
+    setStatus('Loading gems…');
     try {
       gems = await rpc('get_location_gems', { p_code: code });
       setStatus('');
@@ -164,7 +170,7 @@ export function mountGems({ onSelect }) {
     } catch (err) {
       gems = null;
       render();
-      setStatus('invalid activation code', true);
+      setStatus('Invalid activation code', true);
     }
   }
 

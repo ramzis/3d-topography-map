@@ -4,32 +4,32 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-  <title>World Explorer</title>
-  <meta name="description" content="Interactive 3D globe terrain: real elevation data, satellite imagery, live day/night sky, place search and teleport. Fly anywhere on Earth — from Vilnius to anywhere." />
-  <meta name="keywords" content="3D map, topography, terrain, elevation, satellite, earth, 3D globe, relief map" />
+  <title>World Explorer - 3D Location Guesser Game</title>
+  <meta name="description" content="Explore Earth in 3D with real terrain and satellite imagery, or play 3D Location Guesser — get dropped anywhere on the planet and guess where you are." />
+  <meta name="keywords" content="3D map, topography, terrain, elevation, satellite, earth, 3D globe, relief map, location guessing game, geography game, geoguessr alternative, world explorer" />
   <meta name="author" content="tadas" />
   <meta name="robots" content="index, follow" />
   <meta name="theme-color" content="#10141a" />
 
-  <link rel="canonical" href="https://ramzis.github.io/3d-topography-map/" />
+  <link rel="canonical" href="https://explorer.tadget.net/" />
 
   <!-- Open Graph (Facebook, WhatsApp, LinkedIn, ...) -->
   <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="3D Topography Map" />
-  <meta property="og:title" content="3D Topography Map — explore Earth's terrain in 3D" />
-  <meta property="og:description" content="Real elevation, satellite imagery, live day/night sky, place search and teleport. Fly anywhere on Earth." />
-  <meta property="og:url" content="https://ramzis.github.io/3d-topography-map/" />
-  <meta property="og:image" content="https://ramzis.github.io/3d-topography-map/og-image.png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="3D terrain of Vilnius rendered with satellite imagery" />
+  <meta property="og:site_name" content="World Explorer" />
+  <meta property="og:title" content="World Explorer - 3D Location Guesser Game" />
+  <meta property="og:description" content="Explore Earth in 3D with real terrain and satellite imagery, or play 3D Location Guesser — get dropped anywhere and guess where you are." />
+  <meta property="og:url" content="https://explorer.tadget.net/" />
+  <meta property="og:image" content="https://explorer.tadget.net/media/banner-rio.jpg" />
+  <meta property="og:image:width" content="1920" />
+  <meta property="og:image:height" content="1080" />
+  <meta property="og:image:alt" content="3D terrain of Rio de Janeiro rendered with satellite imagery, with the 3D Location Guesser title" />
   <meta property="og:locale" content="en" />
 
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="3D Topography Map — explore Earth's terrain in 3D" />
-  <meta name="twitter:description" content="Real elevation, satellite imagery, live day/night sky. Fly anywhere on Earth." />
-  <meta name="twitter:image" content="https://ramzis.github.io/3d-topography-map/og-image.png" />
+  <meta name="twitter:title" content="World Explorer - 3D Location Guesser Game" />
+  <meta name="twitter:description" content="Explore Earth in 3D with real terrain and satellite imagery, or play 3D Location Guesser and guess where you are." />
+  <meta name="twitter:image" content="https://explorer.tadget.net/media/banner-rio.jpg" />
 
   <!-- PWA-ish extras -->
   <meta name="mobile-web-app-capable" content="yes" />
@@ -43,18 +43,35 @@
   <!-- Google Font: Average Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Average+Sans&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Average+Sans&family=Luckiest+Guy&display=swap" rel="stylesheet" />
 
   <!-- structured data -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "3D Topography Map",
-    "description": "Interactive 3D terrain of Earth with real elevation data, satellite imagery, a live day/night sky, place search and teleport.",
+    "name": "World Explorer - 3D Location Guesser Game",
+    "alternateName": "3D Topography Map",
+    "description": "Explore Earth in 3D with real terrain and satellite imagery, or play 3D Location Guesser — get dropped anywhere on the planet and guess where you are.",
+    "url": "https://explorer.tadget.net/",
     "applicationCategory": "MapApplication",
     "operatingSystem": "Any",
     "browserRequirements": "Requires JavaScript and WebGL",
+    "featureList": "3D topographic map of Earth, real elevation data, satellite imagery, live day/night sky, place search, random teleport, Location Guesser geography game",
+    "hasPart": [
+      {
+        "@type": "WebApplication",
+        "name": "Explore Map",
+        "url": "https://explorer.tadget.net/#explore",
+        "description": "Explore a 3D topographic map of Earth with real elevation data and satellite imagery."
+      },
+      {
+        "@type": "WebApplication",
+        "name": "Play Location Guesser",
+        "url": "https://explorer.tadget.net/#play",
+        "description": "Play 3D Location Guesser: get dropped anywhere on Earth, explore in 3D, and guess where you are."
+      }
+    ],
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
     "isAccessibleForFree": true
   }
@@ -240,7 +257,7 @@
     #gemsPanel.unlocked .gem-locked { display: none; }
     #gemsPanel.unlocked #gemsList { display: block; }
     #diceBtn.rolling { animation: diceSpin 0.55s ease infinite; pointer-events: none; }
-    #gemsStatus.error { color: #ff8a8a; }
+    #gemsStatus.error, #gemCodeStatus.error { color: #ff8a8a; }
 
     /* gem activation input: keep our colors over browser autofill */
     #gemCodeInput { -webkit-text-fill-color: #ffffff; caret-color: #ffffff; }
@@ -287,7 +304,7 @@
     #gemsBtn .btn-label { position: relative; z-index: 2; color: #ffffff; font-weight: 600; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7); }
 
     /* landing CTA: the same rainbow ring, pill-shaped */
-    #landingExplore { position: relative; border: none; overflow: visible; }
+    #landingExplore { position: relative; border: none; overflow: visible; justify-self: center; align-self: center; }
     #landingExplore::before {
       content: ''; position: absolute; inset: -4px; border-radius: 999px;
       background: conic-gradient(from var(--gem-angle), #ff5964, #ffd166, #7ee081, #7ec8e3, #b48ef7, #ff5964);
@@ -315,6 +332,15 @@
     .modal-x svg { @apply w-4 h-4; }
     .modal-btn { @apply glass rounded-full px-4 py-2 text-sm text-ink transition-all duration-100 cursor-pointer select-none active:scale-95 hover:bg-white/25 disabled:opacity-40 disabled:pointer-events-none; }
     .modal-btn.primary { @apply border-white/40 bg-white/20 font-semibold; }
+    .modal-btn.modal-btn-danger { @apply border-[#ff5964]/50 text-[#ff8a8a] hover:bg-[rgba(255,89,100,0.15)] font-semibold; }
+    .modal-btn.modal-btn-rainbow {
+      padding: 10px 22px; font-weight: 600; color: #10141a;
+      background: linear-gradient(90deg, #ffd166, #7ee081, #7ec8e3, #b48ef7, #ff5964, #ffd166);
+      background-size: 200% 100%;
+      animation: gem-buy-slide 3s linear infinite;
+      border: none;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.35);
+    }
     .slippy-map { @apply relative overflow-hidden rounded-2xl grow bg-[#0d1117] cursor-grab touch-none; }
     .slippy-map img { position: absolute; width: 256px; height: 256px; pointer-events: none; user-select: none; -webkit-user-drag: none; image-rendering: crisp-edges; }
     .slippy-marker { position: absolute; transform: translate(-50%, -90%); z-index: 5; pointer-events: none; font-size: 26px; line-height: 1; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); }
@@ -328,6 +354,32 @@
 
     .guesser-pill.selected { @apply border-[#7ee081]/70 bg-[rgba(126,224,129,0.18)] text-[#b7f0be]; }
     #guesserBar .icon-box.selected { @apply border-[#7ee081]/70 text-[#9be8a8]; }
+
+    #landingCta { @apply relative w-full overflow-hidden rounded-3xl border border-white/15 cursor-pointer transition-all duration-100 hover:border-white/40 hover:-translate-y-0.5 active:scale-[0.98] text-left; }
+
+    #landing h1 { font-family: 'Luckiest Guy', system-ui, cursive; font-weight: 400; letter-spacing: 2px; @apply text-4xl sm:text-6xl leading-none; text-shadow: 0 4px 0 rgba(10,15,25,0.55), 0 0 30px rgba(0,0,0,0.4); }
+    #landingCta img { @apply w-full aspect-video object-cover; }
+    #landingCta .cta-overlay { @apply absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center; background: linear-gradient(to bottom, rgba(10,13,18,0.15), rgba(10,13,18,0.55)); }
+    .cta-title { font-family: 'Luckiest Guy', system-ui, cursive; color: #FFD53E; -webkit-text-stroke: 2px #141a26; paint-order: stroke fill; text-shadow: 0 4px 0 rgba(10,15,25,0.55), 0 0 25px rgba(0,0,0,0.5); letter-spacing: 2px; line-height: 0.95; font-size: clamp(28px, 6vw, 56px); margin: 0; }
+    .cta-desc { @apply max-w-md text-xs leading-relaxed text-white/90 sm:text-sm; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+    .cta-play {
+      padding: 10px 26px; margin-top: 4px;
+      font-size: 0.95em; font-weight: 600; color: #10141a;
+      background: linear-gradient(90deg, #ffd166, #7ee081, #7ec8e3, #b48ef7, #ff5964, #ffd166);
+      background-size: 200% 100%;
+      animation: gem-buy-slide 3s linear infinite;
+      border: none; border-radius: 999px; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      display: inline-flex; align-items: center; gap: 8px;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.35);
+    }
+    .cta-play:active { transform: scale(0.96); }
+    .modal-card img.modal-media { @apply w-full rounded-2xl object-cover aspect-video; }
+    .gem-cta { @apply relative block w-full overflow-hidden rounded-3xl border border-white/15 cursor-pointer transition-all duration-100 hover:border-white/40 hover:-translate-y-0.5 active:scale-[0.98] no-underline; }
+    .gem-cta img { @apply w-full aspect-[21/9] object-cover; }
+    .gem-cta .cta-overlay { @apply gap-1 p-3; }
+    .gem-cta .cta-title { font-size: clamp(20px, 5.5vw, 34px); -webkit-text-stroke: 1.5px #141a26; letter-spacing: 1.5px; }
+    .gem-cta .cta-play { padding: 7px 18px; font-size: 0.85em; margin-top: 2px; }
 
     /* zen mode: a phone flipped to landscape hides all the UI for a clean
        immersive map view (transient overlays — teleport, landing, cookie —
@@ -404,10 +456,21 @@
         </button>
         <button id="gemActivateBtn" class="icon-box shrink-0">→</button>
       </div>
+      <p id="gemCodeStatus" class="m-0 px-1 pt-1.5 pb-0.5 text-xs text-muted min-h-[16px]"></p>
 
       <p class="gem-note">Unlock 100 hand-picked wonders of the world —
         one tap each to teleport there — plus <strong>Location Guesser</strong>,
         the 10-round 3D location guessing game.</p>
+
+      <a id="gemGameCta" href="#play" class="gem-cta" aria-label="play Location Guesser">
+        <img id="gemGameCtaImg" alt="3D Location Guesser" decoding="async" />
+        <div class="cta-overlay">
+          <h2 class="cta-title">3D Location Guesser</h2>
+          <span class="cta-play">▶ Play now</span>
+        </div>
+      </a>
+
+      <p class="gem-note">🔒 …and 97 more hand-picked gems — plus the 3D Location Guesser game.</p>
 
       <p class="gem-note">Try a few on us:</p>
       <div id="gemSamples"></div>
@@ -422,7 +485,6 @@
         <div class="gem-item blurred" tabindex="-1"><strong>Forgotten Volcanic Pools</strong></div>
         <div class="gem-item blurred" tabindex="-1"><strong>Cloudbridge Falls</strong></div>
       </div>
-      <p class="gem-note">🔒 …and 97 more hand-picked gems.</p>
 
     </div>
 
@@ -474,21 +536,43 @@
       Imagery: Esri, Maxar, Earthstar Geographics</span>
   </footer>
 
-  <!-- landing page overlay: first-visit showcase; dismissed until tomorrow -->
+  <!-- landing page overlay: shown on direct visits; location/activation URLs skip it -->
   <div id="landing" class="fixed inset-0 z-[60] hidden overflow-y-auto overscroll-contain bg-night/90 backdrop-blur-md">
     <div class="mx-auto flex min-h-full w-full max-w-5xl flex-col items-center gap-6 px-4 py-10 text-center sm:py-14">
       <div class="flex flex-col items-center gap-3">
-        <h1 class="text-3xl font-bold text-ink sm:text-5xl"><span aria-hidden="true">🌍</span> World Explorer</h1>
+        <h1 class="text-ink"><span aria-hidden="true">🌍</span> World Explorer</h1>
         <p class="max-w-xl text-sm leading-relaxed text-muted sm:text-lg">
-          A 3D topographic explorer — real elevation data, satellite imagery and a live day/night
-          sky. Fly from the green hills of Vilnius to the Grand Canyon, Everest and beyond.
+          Explore Earth in 3D — real elevation, satellite imagery, a live day/night sky.
+          Or play <strong>3D Location Guesser</strong>: get dropped anywhere on the planet
+          and guess where you are.
         </p>
       </div>
-      <button id="landingExplore"
-              class="rounded-full bg-white px-8 py-3 text-base font-semibold text-night cursor-pointer transition-all duration-100 hover:-translate-y-0.5 hover:bg-[#f5f6f8] active:scale-95">
-        <span class="relative z-[2]">Explore the map →</span>
-      </button>
-      <div id="landingGrid" class="grid w-full grid-cols-2 gap-3 pb-6 sm:grid-cols-3 lg:grid-cols-5"></div>
+      <div id="landingGrid" class="grid w-full grid-cols-2 gap-3 pb-6 sm:grid-cols-3 lg:grid-cols-5">
+        <a id="landingExplore" href="#explore"
+           class="col-span-full inline-flex items-center no-underline rounded-full bg-white px-8 py-3 text-base font-semibold text-night cursor-pointer transition-all duration-100 hover:-translate-y-0.5 hover:bg-[#f5f6f8] active:scale-95">
+          <span class="relative z-[2]">Explore the map →</span>
+        </a>
+        <a id="landingCta" href="#play" class="col-span-full no-underline" role="button" tabindex="0" aria-label="play Location Guesser">
+          <img id="landingCtaImg" alt="Location Guesser" decoding="async" />
+          <div class="cta-overlay">
+            <h2 class="cta-title">3D Location Guesser</h2>
+            <p class="cta-desc">Get dropped anywhere on Earth, explore in 3D,
+              then pin your guess on the world map. 10 rounds — how close can you get?</p>
+            <span class="cta-play">▶ Play now</span>
+          </div>
+        </a>
+      </div>
+      <div class="flex w-full flex-col items-center gap-2 pb-4 pt-2 text-center">
+        <h2 class="text-base text-ink sm:text-lg">Explore the map — or play 3D Location Guesser</h2>
+        <p class="max-w-2xl text-xs leading-relaxed text-muted sm:text-sm">
+          World Explorer is a free 3D topographic map of Earth — real elevation data, satellite
+          imagery and a live day/night sky. Fly from Vilnius to the Grand Canyon, Mount Everest,
+          Santorini, the Matterhorn, Venice, Dubai, Ha Long Bay, Bryce Canyon and Iceland.
+          3D Location Guesser is the geography guessing game: get dropped anywhere on Earth,
+          explore the terrain in 3D and pin your guess on the world map — 10 rounds,
+          scored by how close you get.
+        </p>
+      </div>
     </div>
   </div>
 
