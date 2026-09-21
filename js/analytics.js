@@ -37,22 +37,19 @@ export function initAnalytics() {
   if (stored === 'denied') return;
 
   const banner = document.createElement('div');
+  banner.id = 'cookieBanner';
   banner.className =
-    'glass fixed bottom-[70px] left-1/2 -translate-x-1/2 z-40 ' +
+    'glass fixed bottom-[70px] left-1/2 -translate-x-1/2 z-[70] ' +
     'flex flex-col gap-2.5 w-[min(92vw,420px)] p-3.5 rounded-3xl ' +
     'text-sm leading-relaxed';
-  const btn =
-    'rounded-full border border-white/25 px-3.5 py-2 text-sm cursor-pointer ' +
-    'text-ink transition-all duration-100 ' +
-    'hover:bg-white/15 hover:-translate-y-0.5 active:scale-90';
   banner.innerHTML =
     '<div class="flex items-center justify-center gap-2.5 text-center">' +
     '<span class="text-[22px]">🍪</span>' +
-    '<span>This map uses Google Analytics to see how it\'s used. OK with you?</span>' +
+    '<span>This app uses Google Analytics to see how it\'s used.</span>' +
     '</div>' +
-    '<div class="grid grid-cols-2 gap-2">' +
-    `<button id="cookieOk" class="${btn}">OK</button>` +
-    `<button id="cookieNo" class="${btn}">Not OK</button>` +
+    '<div class="flex items-center gap-2">' +
+    '<button id="cookieOk" type="button" class="modal-btn primary grow">OK</button>' +
+    '<button id="cookieNo" type="button" class="modal-btn grow">Not OK</button>' +
     '</div>';
   document.body.appendChild(banner);
 
